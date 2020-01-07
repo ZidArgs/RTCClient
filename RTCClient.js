@@ -9,13 +9,10 @@ const PORT = new WeakMap();
 
 function getPort(value) {
     let port = parseInt(value);
-    if (!isNaN(port)) {
-        if (port < 0x0400 || port > 0xFFFF) {
-            throw new Error(`port ${port} is not within range (1024 - 65535)`);
-        }
-        return port;
+    if (isNaN(port)) {
+        return window.location.port || "80";
     }
-    return 8001;
+    return port;
 }
 
 const EMPTY_FN = function() {};

@@ -1,5 +1,5 @@
 
-import MessageBuffer from "./MessageBuffer.js.js";
+import MessageBuffer from "./MessageBuffer.js";
 
 const MESSAGE_BUFFER = new WeakMap();
 
