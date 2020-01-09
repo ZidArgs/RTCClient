@@ -29,18 +29,19 @@ export default class Lobby {
                     }));
                 break;
                 case "uuid":
-                    console.info(`UUID: ${JSON.stringify(msg.body)}`);
-                    this.UUID = msg.body;
+                    console.info(`UUID: ${JSON.stringify(msg.uuid || msg.body)}`);
+                    this.UUID = msg.uuid || msg.body;
                     READY_AWAIT.get(this).forEach(function(fn) {
                         fn(true);
                     });
                     READY_AWAIT.delete(this);
                 break;
                 default:
-                    let answer = await onMessage(msg.uuid);
+                    let answer = await onMessage(msg.uuid || msg.body);
                     client.send(JSON.stringify({
                         requestID: msg.requestID,
-                        uuid: answer
+                        uuid: answer,
+                        body: answer
                     }));
                 break;
             }

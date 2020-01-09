@@ -65,16 +65,21 @@ class RTCClient {
             return sig.UUID;
         }.bind(this));
         await client.isReady();
-        let res = await Rest.post(new URL(`/lobby`, url), {
-            action: "register",
-            pass: MASTER_KEY.get(this)
-        }, {
-            pass: pass,
-            name: name,
-            desc: desc,
-            uuid: client.UUID,
-        });
-        return await res.json();
+        try {
+            let res = await Rest.post(new URL(`/lobby`, url), {
+                action: "register",
+                pass: MASTER_KEY.get(this)
+            }, {
+                pass: pass,
+                name: name,
+                desc: desc,
+                uuid: client.UUID,
+            });
+            return await res.json();
+        } catch(e) {
+            MASTER_NAME.delete(this);
+            return {success: false};
+        }
     }
     
     async unregister() {
