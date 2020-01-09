@@ -14,7 +14,8 @@ const URL = `${window.location.protocol.replace("http", "ws")}//${window.locatio
 export default class Signaling {
 
     constructor(port) {
-        let client = new WebSocket(`${URL}:${port}/signaling`);
+        port = !!port ? `:${port}` : "";
+        let client = new WebSocket(`${URL}${port}/signaling`);
         MESSAGE_BUFFER.set(this, new MessageBuffer());
         READY_AWAIT.set(this, []);
         ON_ICE.set(this, EMPTY_FN);

@@ -6,7 +6,8 @@ const URL = `${window.location.protocol.replace("http", "ws")}//${window.locatio
 export default class Lobby {
 
     constructor(port, onMessage) {
-        let client = new WebSocket(`${URL}:${port}/lobby`);
+        port = !!port ? `:${port}` : "";
+        let client = new WebSocket(`${URL}${port}/lobby`);
         READY_AWAIT.set(this, []);
         client.addEventListener('open', function() {
             clearTimeout(TIMEOUT.get(this));

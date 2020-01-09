@@ -10,7 +10,7 @@ const PORT = new WeakMap();
 function getPort(value) {
     let port = parseInt(value);
     if (isNaN(port)) {
-        return window.location.port || "80";
+        return window.location.port;
     }
     return port;
 }
