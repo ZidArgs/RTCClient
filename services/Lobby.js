@@ -5,7 +5,7 @@ const PING_OUT = 30000;
 export default class Lobby {
 
     constructor(url, onMessage) {
-        let ws_url = new URL("/signaling", url);
+        let ws_url = new URL("/lobby", url);
         ws_url.protocol = ws_url.protocol.replace("http", "ws");
         let client = new WebSocket(ws_url);
         READY_AWAIT.set(this, []);
