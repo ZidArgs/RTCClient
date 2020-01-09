@@ -13,7 +13,7 @@ const URL = `${window.location.protocol.replace("http", "ws")}//${window.locatio
 
 export default class Signaling {
 
-    constructor(port) {
+    constructor(url) {
         let ws_url = new URL("/signaling", url);
         ws_url.protocol = ws_url.protocol.replace("http", "ws");
         let client = new WebSocket(ws_url);
