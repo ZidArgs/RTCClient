@@ -9,7 +9,6 @@ const ON_ICE = new WeakMap();
 const ON_OFFER = new WeakMap();
 const ON_ANSWER = new WeakMap();
 const PING_OUT = 3000;
-const URL = `${window.location.protocol.replace("http", "ws")}//${window.location.hostname}`;
 
 export default class Signaling {
 
