@@ -4,16 +4,7 @@ import Client from "./utils/Client.js";
 import Host from "./utils/Host.js";
 import Rest from "./utils/Rest.js";
 
-const URL = `${window.location.protocol}//${window.location.hostname}`;
-const PORT = new WeakMap();
-
-function getPort(value) {
-    let port = parseInt(value);
-    if (isNaN(port)) {
-        return window.location.port;
-    }
-    return port;
-}
+const URLS = new WeakMap();
 
 const EMPTY_FN = function() {};
 const MASTER_KEY = new WeakMap();
@@ -23,10 +14,20 @@ const ON_MESSAGE = new WeakMap();
 const ON_CONNECT = new WeakMap();
 const ON_DISCONNECT = new WeakMap();
 
+function getPort(value, def) {
+    let port = parseInt(value);
+    if (isNaN(port)) {
+        return def;
+    }
+    return port;
+}
+
 class RTCClient {
 
     constructor(port) {
-        PORT.set(this, getPort(port));
+        let url = new URL(location);
+        url.port = getPort(port, url.port);
+        URLS.set(this, url);
         ON_MESSAGE.set(this, EMPTY_FN);
         ON_CONNECT.set(this, EMPTY_FN);
         ON_DISCONNECT.set(this, EMPTY_FN);
@@ -35,12 +36,13 @@ class RTCClient {
     }
 
     async register(name, pass = "", desc = "") {
+        let url = URLS.get(this);
         console.info(`REGISTER ROOM: ${name}`);
         if (MASTER_NAME.has(this)) return;
         MASTER_NAME.set(this, name);
-        let client = new Lobby(PORT.get(this), async function(uuid) {
+        let client = new Lobby(url, async function(uuid) {
             console.info(`REQUESTED CONNECTION: ${uuid}`);
-            let sig = new Signaling(PORT.get(this));
+            let sig = new Signaling(url);
             await sig.isReady();
             console.info(`SIGNALING STARTED: ${sig.UUID}`);
             let rtc = new Host(sig, uuid);
@@ -63,7 +65,7 @@ class RTCClient {
             return sig.UUID;
         }.bind(this));
         await client.isReady();
-        let res = await Rest.post(`${URL}:${PORT.get(this)}/lobby`, {
+        let res = await Rest.post(new URL(`/lobby`, url), {
             action: "register",
             pass: MASTER_KEY.get(this)
         }, {
@@ -76,8 +78,9 @@ class RTCClient {
     }
     
     async unregister() {
+        let url = URLS.get(this);
         console.info("UNREGISTER ROOM");
-        let res = await Rest.get(`${URL}:${PORT.get(this)}/lobby`, {
+        let res = await Rest.get(new URL(`/lobby`, url), {
             action: "unregister",
             name: MASTER_NAME.get(this),
             pass: MASTER_KEY.get(this)
@@ -90,11 +93,12 @@ class RTCClient {
     }
     
     async connect(name, pass = "") {
+        let url = URLS.get(this);
         console.info(`GET HOST UUID: ${name}`);
-        let sig = new Signaling(PORT.get(this));
+        let sig = new Signaling(url);
         await sig.isReady();
         console.info(`SIGNALING STARTED: ${sig.UUID}`);
-        let res = await Rest.post(`${URL}:${PORT.get(this)}/lobby`, {
+        let res = await Rest.post(new URL(`/lobby`, url), {
             action: "resolve",
             name: name,
             pass: pass
@@ -137,8 +141,9 @@ class RTCClient {
     }
     
     async getInstances() {
+        let url = URLS.get(this);
         console.info("REFRESH INSTANCES");
-        let res = await Rest.get(`${URL}:${PORT.get(this)}/lobby`);
+        let res = await Rest.get(new URL(`/lobby`, url));
         return await res.json();
     }
 

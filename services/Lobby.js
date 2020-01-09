@@ -1,13 +1,13 @@
 const TIMEOUT = new WeakMap();
 const READY_AWAIT = new WeakMap();
 const PING_OUT = 30000;
-const URL = `${window.location.protocol.replace("http", "ws")}//${window.location.hostname}`;
 
 export default class Lobby {
 
-    constructor(port, onMessage) {
-        port = !!port ? `:${port}` : "";
-        let client = new WebSocket(`${URL}${port}/lobby`);
+    constructor(url, onMessage) {
+        let ws_url = new URL("/signaling", url);
+        ws_url.protocol = ws_url.protocol.replace("http", "ws");
+        let client = new WebSocket(ws_url);
         READY_AWAIT.set(this, []);
         client.addEventListener('open', function() {
             clearTimeout(TIMEOUT.get(this));
