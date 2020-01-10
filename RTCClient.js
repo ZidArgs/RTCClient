@@ -47,21 +47,21 @@ class RTCClient {
             console.info(`SIGNALING STARTED: ${sig.UUID}`);
             let rtc = new Host(sig, uuid);
             rtc.onmessage = function(msg) {
-                console.info(`${rtc.reciever}: ${JSON.stringify(msg)}`);
-                ON_MESSAGE.get(this)(rtc.reciever, msg);
+                console.info(`${rtc.remote}: ${JSON.stringify(msg)}`);
+                ON_MESSAGE.get(this)(rtc.remote, msg);
             }.bind(this);
             RTC_INST.get(this).set(uuid, rtc);
             rtc.onconnected = function() {
                 sig.close();
-                ON_CONNECT.get(this)(rtc.reciever);
-                console.info(`CONNECTED: ${rtc.reciever}`);
+                ON_CONNECT.get(this)(rtc.remote);
+                console.info(`CONNECTED: ${rtc.remote}`);
             }.bind(this);
             rtc.ondisconnected = function() {
-                RTC_INST.get(this).delete(rtc.reciever);
-                ON_DISCONNECT.get(this)(rtc.reciever);
-                console.info(`DISCONNECTED: ${rtc.reciever}`);
+                RTC_INST.get(this).delete(rtc.remote);
+                ON_DISCONNECT.get(this)(rtc.remote);
+                console.info(`DISCONNECTED: ${rtc.remote}`);
             }.bind(this);
-            console.info(`RTC MODULE INITIALIZED: ${rtc.reciever} - ${sig.UUID}`);
+            console.info(`RTC MODULE INITIALIZED: ${rtc.remote} - ${sig.UUID}`);
             return sig.UUID;
         }.bind(this));
         await client.isReady();
@@ -115,20 +115,20 @@ class RTCClient {
             console.info(`CONNECT TO: ${res.uuid}`);
             let rtc = new Client(sig, res.uuid);
             rtc.onmessage = function(msg) {
-                console.info(`${rtc.reciever}: ${JSON.stringify(msg)}`);
-                ON_MESSAGE.get(this)(rtc.reciever, msg);
+                console.info(`${rtc.remote}: ${JSON.stringify(msg)}`);
+                ON_MESSAGE.get(this)(rtc.remote, msg);
             }.bind(this);
             rtc.onconnected = function() {
                 sig.close();
-                ON_CONNECT.get(this)(rtc.reciever);
-                console.info(`CONNECTED: ${rtc.reciever}`);
+                ON_CONNECT.get(this)(rtc.remote);
+                console.info(`CONNECTED: ${rtc.remote}`);
             }.bind(this);
             rtc.ondisconnected = function() {
-                RTC_INST.get(this).delete(rtc.reciever);
-                ON_DISCONNECT.get(this)(rtc.reciever);
-                console.info(`DISCONNECTED: ${rtc.reciever}`);
+                RTC_INST.get(this).delete(rtc.remote);
+                ON_DISCONNECT.get(this)(rtc.remote);
+                console.info(`DISCONNECTED: ${rtc.remote}`);
             }.bind(this);
-            RTC_INST.get(this).set(res.reciever, rtc);
+            RTC_INST.get(this).set(res.remote, rtc);
         }
         return {success: res.success};
     }

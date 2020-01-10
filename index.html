@@ -19,7 +19,7 @@
         let rtc = new RTCClient(8001);
 
         rtc.onmessage = function (sender, msg) {
-            chat_history.value += `========== OTHER ==========\n${msg}\n\n`;
+            chat_history.value += `========== ${sender} ==========\n${msg}\n\n`;
         };
 
         send.addEventListener("click", function() {

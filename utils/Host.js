@@ -5,7 +5,7 @@ const MESSAGE_BUFFER = new WeakMap();
 
 const RTC = new WeakMap();
 const DCH = new WeakMap();
-const RECIEVER = new WeakMap();
+const REMOTE = new WeakMap();
 
 const EMPTY_FN = function() {};
 const ON_MESSAGE = new WeakMap();
@@ -20,8 +20,8 @@ const configuration = {
 
 export default class Host {
 
-    constructor(sigCh, reciever) {
-        RECIEVER.set(this, reciever);
+    constructor(sigCh, remote) {
+        REMOTE.set(this, remote);
         ON_MESSAGE.set(this, EMPTY_FN);
         ON_CONNECTED.set(this, EMPTY_FN);
         ON_DISCONNECTED.set(this, EMPTY_FN);
@@ -48,19 +48,19 @@ export default class Host {
             DCH.set(this, dch);
         }.bind(this);
         rtc.onicecandidate = function(event) {
-            sigCh.sendICE(reciever, event.candidate);
+            sigCh.sendICE(remote, event.candidate);
         };
         sigCh.onice = function(sender, candidate) {
-            if (sender == reciever && !!candidate)  {
+            if (sender == remote && !!candidate)  {
                 rtc.addIceCandidate(candidate);
             }
         };
         sigCh.onoffer = function(sender, offer) {
-            if (sender == reciever)  {
+            if (sender == remote)  {
                 rtc.setRemoteDescription(offer).then(function() {
                     rtc.createAnswer().then(function(answer) {
                         rtc.setLocalDescription(answer).then(function() {
-                            sigCh.sendSDP(reciever, answer);
+                            sigCh.sendSDP(remote, answer);
                         });
                     });
                 });
@@ -80,8 +80,8 @@ export default class Host {
         }
     }
 
-    get reciever() {
-        return RECIEVER.get(this);
+    get remote() {
+        return REMOTE.get(this);
     }
 
     set onmessage(value) {
