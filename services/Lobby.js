@@ -1,61 +1,94 @@
-const TIMEOUT = new WeakMap();
-const READY_AWAIT = new WeakMap();
-const PING_OUT = 30000;
+import Rest from "../utils/Rest.js";
+import WebSocketClient from "../utils/WebSocketClient.js";
+
+const SERVICE_URL = new WeakMap();
+const CLIENT = new WeakMap();
+const MASTER_KEY = new WeakMap();
+const MASTER_NAME = new WeakMap();
 
 export default class Lobby {
 
     constructor(url, onMessage) {
-        let ws_url = new URL("/lobby", url);
+        let service_url = new URL("/lobby", url);
+        SERVICE_URL.set(this, service_url);
+        MASTER_KEY.set(this, btoa(crypto.getRandomValues(new Uint8Array(16)).join("")));
+        // create websocket
+        let ws_url = new URL(service_url);
         ws_url.protocol = ws_url.protocol.replace("http", "ws");
-        let client = new WebSocket(ws_url);
-        READY_AWAIT.set(this, []);
-        client.addEventListener('open', function() {
-            clearTimeout(TIMEOUT.get(this));
-            TIMEOUT.set(this, setTimeout(()=>client.close(), PING_OUT));
-        }.bind(this));
-        client.addEventListener('close', function() {
-            clearTimeout(TIMEOUT.get(this));
-            TIMEOUT.delete(this);
-        }.bind(this));
-        client.addEventListener('message', async function(event) {
-            let msg = JSON.parse(event.data);
-            switch(msg.type) {
-                case "ping":
-                    clearTimeout(TIMEOUT.get(this));
-                    TIMEOUT.set(this, setTimeout(()=>client.close(), PING_OUT));
-                    client.send(JSON.stringify({
-                        type:"pong",
-                        time:msg.time
-                    }));
-                break;
-                case "uuid":
-                    console.info(`UUID: ${JSON.stringify(msg.uuid || msg.body)}`);
-                    this.UUID = msg.uuid || msg.body;
-                    READY_AWAIT.get(this).forEach(function(fn) {
-                        fn(true);
-                    });
-                    READY_AWAIT.delete(this);
-                break;
-                default:
-                    let answer = await onMessage(msg.uuid || msg.body);
-                    client.send(JSON.stringify({
-                        requestID: msg.requestID,
-                        uuid: answer,
-                        body: answer
-                    }));
-                break;
-            }
-        }.bind(this));
+        let client = new WebSocketClient(ws_url, async function(data) {
+            let answer = await onMessage(data.body);
+            client.send({
+                requestID: data.requestID,
+                body: answer
+            });
+        });
+        CLIENT.set(this, client);
     }
 
-    isReady() {
-        return new Promise(function(resolve) {
-            if (READY_AWAIT.has(this)) {
-                READY_AWAIT.get(this).push(resolve);
-            } else {
-                resolve(true);
+    async register(name, pass = "", desc = "") {
+        if (MASTER_NAME.has(this)) return;
+        let url = SERVICE_URL.get(this);
+        let client = CLIENT.get(this);
+        await client.open();
+        MASTER_NAME.set(this, name);
+        try {
+            let res = await Rest.post(url, {
+                action: "register",
+                pass: MASTER_KEY.get(this)
+            }, {
+                pass: pass,
+                name: name,
+                desc: desc,
+                uuid: client.UUID,
+            });
+        } catch(e) {
+            MASTER_NAME.delete(this);
+            return {success: false, error: e};
+        }
+    }
+    
+    async unregister() {
+        let url = SERVICE_URL.get(this);
+        let client = CLIENT.get(this);
+        try {
+            let res = await Rest.get(url, {
+                action: "unregister",
+                name: MASTER_NAME.get(this),
+                pass: MASTER_KEY.get(this)
+            });
+            if (res.success === true) {
+                MASTER_NAME.delete(this);
             }
-        }.bind(this));
+            client.close();
+            return res;
+        } catch(e) {
+            return {success: false, error: e};
+        }
+    }
+    
+    async getInstances() {
+        let url = SERVICE_URL.get(this);
+        try {
+            return await Rest.get(url);
+        } catch(e) {
+            return {success: false, error: e};
+        }
+    }
+    
+    async getPeer(uuid, name, pass = "") {
+        let url = SERVICE_URL.get(this);
+        try {
+            let res = await Rest.post(url, {
+                action: "resolve",
+                name: name,
+                pass: pass
+            }, {
+                uuid: uuid
+            });
+            return res;
+        } catch(e) {
+            return {success: false, error: e};
+        }
     }
 
 }

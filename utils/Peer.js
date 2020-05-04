@@ -1,6 +1,7 @@
 const RTC = new WeakMap();
 const DATA_CHANNELS = new WeakMap();
 const REMOTE = new WeakMap();
+const SIG_CH = new WeakMap();
 
 const RTC_STATE = new WeakMap();
 
@@ -9,37 +10,32 @@ const ON_CONNECTED = new WeakMap();
 const ON_CLOSED = new WeakMap();
 const ON_TERMINATED = new WeakMap();
 
-const configuration = {
-    iceServers: [{
-        urls: 'stun:stun.l.google.com:19302'
-    }]
-};
-
+// TODO better error messages (include expected/current state)
 export default class Peer {
 
-    constructor(sigCh, remote) {
+    constructor(sigCh, remote, config = {}) {
         REMOTE.set(this, remote);
         DATA_CHANNELS.set(this, new Map());
         ON_CONNECTED.set(this, EMPTY_FN);
         ON_CLOSED.set(this, EMPTY_FN);
         ON_TERMINATED.set(this, EMPTY_FN);
         RTC_STATE.set(this, "new");
-        
-        let remote = REMOTE.get(this);
-        let rtc = new RTCPeerConnection(configuration);
+        SIG_CH.set(this, sigCh);
+        // create RTC interface
+        let rtc = new RTCPeerConnection(config);
         RTC.set(this, rtc);
         rtc.onconnectionstatechange = function (event) {
             console.info(`STATE: "${rtc.connectionState}"`);
             switch(rtc.connectionState) {
                 case "connected":
                     RTC_STATE.set(this, "open");
-                    ON_CONNECTED(remote);
+                    ON_CONNECTED.get(this)(remote);
                     break;
                 case "disconnected":
                 case "failed":
                     RTC_STATE.set(this, "error");
                     console.error(`ERROR: connection to peer "${remote}" unexpectedly terrminated`);
-                    ON_TERMINATED(remote);
+                    ON_TERMINATED.get(this)(remote);
                     break;
                 case "closed":
                     RTC_STATE.set(this, "closed");
@@ -81,8 +77,12 @@ export default class Peer {
         if (RTC_STATE.get(this) != "new") {
             throw new Error("RTC already opened");
         } else {
-            RTC.get(this).createOffer().then(function(offer) {
-                RTC.get(this).setLocalDescription(offer).then(function() {
+            RTC_STATE.set(this, "connecting");
+            let rtc = RTC.get(this);
+            let sigCh = SIG_CH.get(this);
+            let remote = REMOTE.get(this);
+            rtc.createOffer().then(function(offer) {
+                rtc.setLocalDescription(offer).then(function() {
                     sigCh.sendSDP(remote, offer);
                 });
             });
@@ -91,7 +91,8 @@ export default class Peer {
 
     close() {
         if (RTC_STATE.get(this) == "open") {
-            RTC.get(this).close();
+            let rtc = RTC.get(this);
+            rtc.close();
         } else {
             throw new Error("RTC not open");
         }
@@ -99,31 +100,23 @@ export default class Peer {
 
     openChannel(name, id, callback) {
         return new Promise((resolve, reject) => {
-            if (RTC_STATE.get(this) == "open") {
-                var dch = RTC.get(this).createDataChannel(name, {negotiated: true, id: id});
-                dch.onopen = function(event) {
-                    DATA_CHANNELS.get(this).set(name, dch);
-                    resolve();
-                }.bind(this);
-                dch.onclose = function(event) {
-                    DATA_CHANNELS.get(this).delete(name);
-                }.bind(this);
-                dch.onmessage = function(event) {
-                    callback(name, JSON.parse(event.data));
-                }.bind(this);
-            } else {
-                throw new Error("RTC not open");
-            }
+            var dch = RTC.get(this).createDataChannel(name, {negotiated: true, id: id});
+            dch.onopen = function(event) {
+                DATA_CHANNELS.get(this).set(name, dch);
+                resolve();
+            }.bind(this);
+            dch.onclose = function(event) {
+                DATA_CHANNELS.get(this).delete(name);
+            }.bind(this);
+            dch.onmessage = function(event) {
+                callback(name, JSON.parse(event.data));
+            }.bind(this);
         });
     }
 
     send(name, msg) {
-        if (RTC_STATE.get(this) == "open") {
-            if (DATA_CHANNELS.get(this).has(this)) {
-                DATA_CHANNELS.get(this).get(name).send(JSON.stringify(msg));
-            }
-        } else {
-            throw new Error("RTC not open");
+        if (DATA_CHANNELS.get(this).has(name)) {
+            DATA_CHANNELS.get(this).get(name).send(JSON.stringify(msg));
         }
     }
 

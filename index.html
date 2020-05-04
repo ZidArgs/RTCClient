@@ -5,6 +5,12 @@
     <script type="module" defer>
         import RTCClient from "./RTCClient.js";
 
+        const DEFAULT_CONFIG = {
+            iceServers: [{
+                urls: 'stun:stun.l.google.com:19302'
+            }]
+        };
+
         let host_name = document.getElementById("host_name");
         let host_button = document.getElementById("host_button");
         
@@ -16,7 +22,7 @@
         let chat_text = document.getElementById("chat_text");
         let send = document.getElementById("send");
         
-        let rtc = new RTCClient(8001);
+        let rtc = new RTCClient(8001, DEFAULT_CONFIG);
 
         rtc.onmessage = function (sender, msg) {
             chat_history.value += `========== ${sender} ==========\n${msg}\n\n`;

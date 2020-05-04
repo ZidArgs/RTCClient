@@ -1,107 +1,74 @@
-import MessageBuffer from "../utils/MessageBuffer.js";
+import WebSocketClient from "../utils/WebSocketClient.js";
+
+const SERVICE_URL = new WeakMap();
 
 const EMPTY_FN = function() {};
 const CLIENT = new WeakMap();
-const TIMEOUT = new WeakMap();
-const MESSAGE_BUFFER = new WeakMap();
-const READY_AWAIT = new WeakMap();
 const ON_ICE = new WeakMap();
 const ON_OFFER = new WeakMap();
 const ON_ANSWER = new WeakMap();
-const PING_OUT = 3000;
+
+async function onMessageRecieved(msg) {
+    switch(msg.type) {
+        case "sdp":
+            console.info(`SDP: ${JSON.stringify(msg.body)}`);
+            if (msg.body.type == "offer") {
+                ON_OFFER.get(this)(msg.sender, msg.body);
+            } else if (msg.body.type == "answer") {
+                ON_ANSWER.get(this)(msg.sender, msg.body);
+            }
+        break;
+        case "ice":
+            console.info(`ICE: ${JSON.stringify(msg.body)}`);
+            ON_ICE.get(this)(msg.sender, msg.body);
+        break;
+    }
+}
 
 export default class Signaling {
 
     constructor(url) {
-        let ws_url = new URL("/signaling", url);
-        ws_url.protocol = ws_url.protocol.replace("http", "ws");
-        let client = new WebSocket(ws_url);
-        MESSAGE_BUFFER.set(this, new MessageBuffer());
-        READY_AWAIT.set(this, []);
+        let service_url = new URL("/signaling", url);
+        SERVICE_URL.set(this, service_url);
+        service_url.protocol = service_url.protocol.replace("http", "ws");
+        let client = new WebSocketClient(service_url, onMessageRecieved.bind(this));
+        CLIENT.set(this, client);
         ON_ICE.set(this, EMPTY_FN);
         ON_OFFER.set(this, EMPTY_FN);
         ON_ANSWER.set(this, EMPTY_FN);
-        client.addEventListener('open', () => {
-            CLIENT.set(this, client);
-            clearTimeout(TIMEOUT.get(this));
-            TIMEOUT.set(this, setTimeout(()=>client.close(), PING_OUT));
-            MESSAGE_BUFFER.get(this).each(client.send);
-        });
-        client.addEventListener('close', () => {
-            CLIENT.delete(this);
-            clearTimeout(TIMEOUT.get(this));
-            TIMEOUT.delete(this);
-        });
-        client.addEventListener('message', (event) => {
-            let msg = JSON.parse(event.data);
-            switch(msg.type) {
-                case "ping":
-                    clearTimeout(TIMEOUT.get(this));
-                    TIMEOUT.set(this, setTimeout(()=>client.close(), PING_OUT));
-                    client.send(JSON.stringify({type:"pong",time:msg.time}));
-                break;
-                case "uuid":
-                    console.info(`UUID: ${JSON.stringify(msg.body)}`);
-                    this.UUID = msg.body;
-                    READY_AWAIT.get(this).forEach(function(fn) {
-                        fn(true);
-                    });
-                    READY_AWAIT.delete(this);
-                break;
-                case "sdp":
-                    console.info(`SDP: ${JSON.stringify(msg.body)}`);
-                    if (msg.body.type == "offer") {
-                        ON_OFFER.get(this)(msg.sender, msg.body);
-                    } else if (msg.body.type == "answer") {
-                        ON_ANSWER.get(this)(msg.sender, msg.body);
-                    }
-                break;
-                case "ice":
-                    console.info(`ICE: ${JSON.stringify(msg.body)}`);
-                    ON_ICE.get(this)(msg.sender, msg.body);
-                break;
-            }
-        });
+    }
+
+    get UUID() {
+        let client = CLIENT.get(this);
+        return client.UUID;
+    }
+
+    async open() {
+        let client = CLIENT.get(this);
+        await client.open();
     }
 
     close() {
-        CLIENT.get(this).close();
+        let client = CLIENT.get(this);
+        client.close();
     }
 
     sendICE(reciever, data) {
-        let msg = JSON.stringify({
+        let client = CLIENT.get(this);
+        client.send({
             type: 'ice',
             reciever: reciever,
             body: data
         });
-        if (CLIENT.has(this)) {
-            CLIENT.get(this).send(msg);
-        } else {
-            MESSAGE_BUFFER.get(this).add(msg);
-        }
     }
 
     sendSDP(reciever, data) {
-        let msg = JSON.stringify({
+        let client = CLIENT.get(this);
+        client.send({
             type: 'sdp',
             reciever: reciever,
             body: data
         });
-        if (CLIENT.has(this)) {
-            CLIENT.get(this).send(msg);
-        } else {
-            MESSAGE_BUFFER.get(this).add(msg);
-        }
-    }
-
-    isReady() {
-        return new Promise(function(resolve) {
-            if (READY_AWAIT.has(this)) {
-                READY_AWAIT.get(this).push(resolve);
-            } else {
-                resolve(true);
-            }
-        }.bind(this));
     }
 
     set onice(value) {

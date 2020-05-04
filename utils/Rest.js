@@ -21,7 +21,7 @@ function getQuery(data) {
 class Rest {
 
     async get(url, query) {
-        let r = await fetch(`${url}${getQuery(query)}`, {
+        let res = await fetch(`${url}${getQuery(query)}`, {
             method: 'GET',
             cache: 'no-cache',
             headers: {
@@ -29,14 +29,14 @@ class Rest {
                 'Cache-Control': 'no-cache'
             }
         });
-        if (r.status < 200 || r.status >= 300) {
-            throw new Error(`error loading file "${url}" - status: ${r.status}`);
+        if (res.status < 200 || res.status >= 300) {
+            throw new Error(`error loading file "${url}" - status: ${res.status}`);
         }
-        return r;
+        return await res.json();
     }
 
     async post(url, query, data) {
-        let r = await fetch(`${url}${getQuery(query)}`, {
+        let res = await fetch(`${url}${getQuery(query)}`, {
             method: 'POST',
             cache: 'no-cache',
             headers: {
@@ -45,10 +45,10 @@ class Rest {
             },
             body: JSON.stringify(data)
         });
-        if (r.status < 200 || r.status >= 300) {
-            throw new Error(`error loading file "${url}" - status: ${r.status}`);
+        if (res.status < 200 || res.status >= 300) {
+            throw new Error(`error loading file "${url}" - status: ${res.status}`);
         }
-        return r;
+        return await res.json();
     }
 
 }
