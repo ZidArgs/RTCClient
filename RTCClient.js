@@ -27,7 +27,7 @@ function createPeer(sig, uuid, config, instances, onMessage, onConnect, onDiscon
     console.info(`SIGNALING STARTED: ${sig.UUID}`);
     let rtc = new Peer(sig, uuid, config);
     rtc.openChannel("data", 1, function(name, msg) {
-        console.info(`${rtc.remote}: ${JSON.stringify(msg)}`);
+        console.info(`${rtc.remote} [${name}]: ${JSON.stringify(msg)}`);
         onMessage(rtc.remote, msg);
     });
     instances.set(uuid, rtc);
@@ -98,7 +98,7 @@ class RTCClient {
         if (res.success === true) {
             console.info(`CONNECT TO: ${res.uuid}`);
             let rtc = createPeer(sig, res.uuid, config, RTC_INST.get(this), ON_MESSAGE.get(this), ON_CONNECT.get(this), ON_DISCONNECT.get(this));
-            rtc.open();
+            rtc.negotiate();
         }
         return {success: res.success};
     }

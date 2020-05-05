@@ -62,6 +62,7 @@ export default class Peer {
         };
         sigCh.onoffer = function(sender, offer) {
             if (sender == remote)  {
+                RTC_STATE.set(this, "negotiating");
                 rtc.setRemoteDescription(offer).then(function() {
                     rtc.createAnswer().then(function(answer) {
                         rtc.setLocalDescription(answer).then(function() {
@@ -73,11 +74,11 @@ export default class Peer {
         };
     }
 
-    open() {
+    negotiate() {
         if (RTC_STATE.get(this) != "new") {
-            throw new Error("RTC already opened");
+            throw new Error("RTC already negotiating or open");
         } else {
-            RTC_STATE.set(this, "connecting");
+            RTC_STATE.set(this, "negotiating");
             let rtc = RTC.get(this);
             let sigCh = SIG_CH.get(this);
             let remote = REMOTE.get(this);
