@@ -1,4 +1,29 @@
-import MessageBuffer from "../utils/MessageBuffer.js";
+class MessageBuffer {
+
+    // #messages = [];
+    constructor() {
+        this.messages = [];
+    }
+
+    add(msg) {
+        this./*#*/messages.push(msg);
+    }
+
+    next() {
+        if (!!this./*#*/messages.length) {
+            return this./*#*/messages.shift();
+        }
+    }
+
+    each(callback) {
+        while (!!this./*#*/messages.length) {
+            callback(this./*#*/messages.shift());
+        }
+    }
+
+}
+
+// WebSocket
 
 const SERVICE_URL = new WeakMap();
 const SOCKET = new WeakMap();
@@ -32,17 +57,15 @@ function openSocket(that, url, onMessage) {
                     case "ping":
                         clearTimeout(TIMEOUT.get(this));
                         TIMEOUT.set(this, setTimeout(()=>socket.close(), PING_OUT));
-                        socket.send(JSON.stringify({
-                            type:"pong",
-                            time:msg.time
-                        }));
+                        msg.type = "pong";
+                        socket.send(JSON.stringify(msg));
                     break;
                     case "uuid":
-                        SOCKET_ID.set(this, msg.body);
+                        SOCKET_ID.set(this, msg.data);
                         resolve();
                     break;
-                    default:
-                        onMessage(msg);
+                    case "data":
+                        onMessage(msg.data);
                     break;
                 }
             }.bind(that));
@@ -86,7 +109,10 @@ export default class WebSocketClient {
         if (typeof data == "undefined") {
             throw new Error("can not send undefined data");
         }
-        let msg = JSON.stringify(data);
+        let msg = JSON.stringify({
+            type: "data",
+            data: data
+        });
         if (SOCKET.has(this)) {
             let socket = SOCKET.get(this);
             socket.send(msg);
@@ -97,5 +123,3 @@ export default class WebSocketClient {
     }
 
 }
-
-

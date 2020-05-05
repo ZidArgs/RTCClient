@@ -11,7 +11,7 @@ const ON_CLOSED = new WeakMap();
 const ON_TERMINATED = new WeakMap();
 
 // TODO better error messages (include expected/current state)
-export default class Peer {
+export default class RTCPeer {
 
     constructor(sigCh, remote, config = {}) {
         REMOTE.set(this, remote);
@@ -71,7 +71,7 @@ export default class Peer {
                     });
                 });
             }
-        };
+        }.bind(this);
     }
 
     negotiate() {

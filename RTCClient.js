@@ -1,10 +1,9 @@
 import Lobby from "./services/Lobby.js";
 import Signaling from "./services/Signaling.js";
-import Peer from "./utils/Peer.js";
+import RTCPeer from "./utils/RTCPeer.js";
 
 const SERVICE_URL = new WeakMap();
 const LOBBY = new WeakMap();
-const SIGNALING = new WeakMap();
 const CONFIG = new WeakMap();
 
 const EMPTY_FN = function() {};
@@ -25,7 +24,7 @@ function getPort(value, def) {
 
 function createPeer(sig, uuid, config, instances, onMessage, onConnect, onDisconnect) {
     console.info(`SIGNALING STARTED: ${sig.UUID}`);
-    let rtc = new Peer(sig, uuid, config);
+    let rtc = new RTCPeer(sig, uuid, config);
     rtc.openChannel("data", 1, function(name, msg) {
         console.info(`${rtc.remote} [${name}]: ${JSON.stringify(msg)}`);
         onMessage(rtc.remote, msg);
