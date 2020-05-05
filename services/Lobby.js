@@ -32,7 +32,7 @@ export default class Lobby {
         await client.open();
         MASTER_NAME.set(this, name);
         try {
-            return await Rest.post(url, {
+            let res = await Rest.post(url, {
                 action: "register",
                 pass: MASTER_KEY.get(this)
             }, {
@@ -41,6 +41,7 @@ export default class Lobby {
                 desc: desc,
                 uuid: client.UUID,
             });
+            return res;
         } catch(e) {
             MASTER_NAME.delete(this);
             return {success: false, error: e};
@@ -69,7 +70,8 @@ export default class Lobby {
     async getInstances() {
         let url = SERVICE_URL.get(this);
         try {
-            return await Rest.get(url);
+            let res = await Rest.get(url);
+            return res;
         } catch(e) {
             return {success: false, error: e};
         }
@@ -78,13 +80,14 @@ export default class Lobby {
     async getPeer(uuid, name, pass = "") {
         let url = SERVICE_URL.get(this);
         try {
-            return await Rest.post(url, {
+            let res = await Rest.post(url, {
                 action: "resolve",
                 name: name,
                 pass: pass
             }, {
                 uuid: uuid
             });
+            return res;
         } catch(e) {
             return {success: false, error: e};
         }

@@ -11,7 +11,6 @@ const ON_ANSWER = new WeakMap();
 async function onMessageRecieved(msg) {
     switch(msg.type) {
         case "sdp":
-            console.info(`SDP: ${JSON.stringify(msg.body)}`);
             if (msg.body.type == "offer") {
                 ON_OFFER.get(this)(msg.sender, msg.body);
             } else if (msg.body.type == "answer") {
@@ -19,7 +18,6 @@ async function onMessageRecieved(msg) {
             }
         break;
         case "ice":
-            console.info(`ICE: ${JSON.stringify(msg.body)}`);
             ON_ICE.get(this)(msg.sender, msg.body);
         break;
     }

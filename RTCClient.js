@@ -14,6 +14,7 @@ const MASTER_KEY = new WeakMap();
 const MASTER_NAME = new WeakMap();
 const ON_CONNECT = new WeakMap();
 const ON_DISCONNECT = new WeakMap();
+const ON_FAILED = new WeakMap();
 
 function getPort(value, def) {
     let port = parseInt(value);
@@ -34,7 +35,8 @@ class RTCClient {
         CHANNELS.set(this, channels);
         ON_CONNECT.set(this, EMPTY_FN);
         ON_DISCONNECT.set(this, EMPTY_FN);
-        RTC_INST.set(this, new Map);
+        ON_FAILED.set(this, EMPTY_FN);
+        RTC_INST.set(this, new Map());
         MASTER_KEY.set(this, btoa(crypto.getRandomValues(new Uint8Array(16)).join("")));
         // create lobby endpoint
         let lobby = new Lobby(url, async function(uuid) {
@@ -56,7 +58,7 @@ class RTCClient {
         for (let id in channels) {
             let channel_name = channels[id];
             rtc.openChannel(channel_name, id + 1, function(channel, msg) {
-                console.info(`${rtc.remoteID} [${channel}]: ${JSON.stringify(msg)}`);
+                console.info(`${rtc.remoteID} [${channel}]:`, msg);
                 if (messageHandler.has(channel)) {
                     messageHandler.get(channel)(rtc.remoteID, msg);
                 }
@@ -67,13 +69,18 @@ class RTCClient {
         RTC_INST.get(this).set(uuid, rtc);
         rtc.onconnected = function() {
             sig.close();
-            ON_CONNECT.get(this)(rtc.remoteID);
             console.info(`CONNECTED: ${rtc.remoteID}`);
+            ON_CONNECT.get(this)(rtc.remoteID);
         }.bind(this);
-        rtc.ondisconnected = function() {
+        rtc.onclosed = function() {
             RTC_INST.get(this).delete(rtc.remoteID);
-            ON_DISCONNECT.get(this)(rtc.remoteID);
             console.info(`DISCONNECTED: ${rtc.remoteID}`);
+            ON_DISCONNECT.get(this)(rtc.remoteID);
+        }.bind(this);
+        rtc.onfailed = function() {
+            console.info(`ICE FAILED: ${rtc.remoteID}`);
+            RTC_INST.get(this).delete(rtc.remoteID);
+            ON_FAILED.get(this)(rtc.remoteID);
         }.bind(this);
         console.info(`RTC MODULE INITIALIZED\nlocal:  ${sig.UUID}\nremote: ${rtc.remoteID}`);
         return rtc;
@@ -107,8 +114,7 @@ class RTCClient {
         let res = await lobby.getPeer(sig.UUID, name, pass);
         if (res.success === true) {
             console.info(`CONNECT TO: ${res.uuid}`);
-            let rtc = this.createPeer(sig, res.uuid);
-            rtc.negotiate();
+            this.createPeer(sig, res.uuid).negotiate();
         }
         return {success: res.success};
     }
@@ -116,6 +122,7 @@ class RTCClient {
     async cut(key) {
         console.info(`CUT: ${key}`);
         RTC_INST.get(this).get(key).close();
+        RTC_INST.get(this).delete(key);
     }
 
     async disconnect() {
@@ -123,6 +130,7 @@ class RTCClient {
         RTC_INST.get(this).forEach(function(rtc) {
             rtc.close();
         });
+        RTC_INST.get(this).clear();
     }
 
     send(channel, msg) {
@@ -164,6 +172,14 @@ class RTCClient {
             ON_DISCONNECT.set(this, value);
         } else {
             ON_DISCONNECT.set(this, EMPTY_FN);
+        }
+    }
+
+    set onfailed(value) {
+        if (typeof value == "function") {
+            ON_FAILED.set(this, value);
+        } else {
+            ON_FAILED.set(this, EMPTY_FN);
         }
     }
 
