@@ -10,6 +10,8 @@
                 urls: 'stun:stun.l.google.com:19302'
             }]
         };
+    
+        // TODO add iceServer input (like trickle-ice)
 
         let host_name = document.getElementById("host_name");
         let host_button = document.getElementById("host_button");
@@ -22,14 +24,14 @@
         let chat_text = document.getElementById("chat_text");
         let send = document.getElementById("send");
         
-        let rtc = new RTCClient(8001, DEFAULT_CONFIG);
+        let rtc = new RTCClient(8001, DEFAULT_CONFIG, ["chat"]);
 
-        rtc.onmessage = function (sender, msg) {
+        rtc.addMessageHandler("chat", function(sender, msg) {
             chat_history.value += `========== ${sender} ==========\n${msg}\n\n`;
-        };
+        });
 
         send.addEventListener("click", function() {
-            rtc.send(chat_text.value);
+            rtc.send("chat", chat_text.value);
             chat_history.value += `=========== YOU ===========\n${chat_text.value}\n\n`;
             chat_text.value = "";
         });

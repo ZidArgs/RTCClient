@@ -5,12 +5,13 @@ import RTCPeer from "./utils/RTCPeer.js";
 const SERVICE_URL = new WeakMap();
 const LOBBY = new WeakMap();
 const CONFIG = new WeakMap();
+const RTC_INST = new WeakMap();
+const CHANNELS = new WeakMap();
+const MESSAGE_HANDLER = new WeakMap();
 
 const EMPTY_FN = function() {};
 const MASTER_KEY = new WeakMap();
 const MASTER_NAME = new WeakMap();
-const RTC_INST = new WeakMap();
-const ON_MESSAGE = new WeakMap();
 const ON_CONNECT = new WeakMap();
 const ON_DISCONNECT = new WeakMap();
 
@@ -22,36 +23,15 @@ function getPort(value, def) {
     return port;
 }
 
-function createPeer(sig, uuid, config, instances, onMessage, onConnect, onDisconnect) {
-    console.info(`SIGNALING STARTED: ${sig.UUID}`);
-    let rtc = new RTCPeer(sig, uuid, config);
-    rtc.openChannel("data", 1, function(name, msg) {
-        console.info(`${rtc.remote} [${name}]: ${JSON.stringify(msg)}`);
-        onMessage(rtc.remote, msg);
-    });
-    instances.set(uuid, rtc);
-    rtc.onconnected = function() {
-        sig.close();
-        onConnect(rtc.remote);
-        console.info(`CONNECTED: ${rtc.remote}`);
-    };
-    rtc.ondisconnected = function() {
-        instances.delete(rtc.remote);
-        onDisconnect(rtc.remote);
-        console.info(`DISCONNECTED: ${rtc.remote}`);
-    };
-    console.info(`RTC MODULE INITIALIZED: ${rtc.remote} - ${sig.UUID}`);
-    return rtc;
-}
-
 class RTCClient {
 
-    constructor(port, config = {}) {
+    constructor(port, config = {}, channels = []) {
         let url = new URL(location);
         url.port = getPort(port, url.port);
         SERVICE_URL.set(this, url);
+        MESSAGE_HANDLER.set(this, new Map());
         CONFIG.set(this, config);
-        ON_MESSAGE.set(this, EMPTY_FN);
+        CHANNELS.set(this, channels);
         ON_CONNECT.set(this, EMPTY_FN);
         ON_DISCONNECT.set(this, EMPTY_FN);
         RTC_INST.set(this, new Map);
@@ -61,10 +41,44 @@ class RTCClient {
             console.info(`REQUESTED CONNECTION: ${uuid}`);
             let sig = new Signaling(url);
             await sig.open();
-            createPeer(sig, uuid, config, RTC_INST.get(this), ON_MESSAGE.get(this), ON_CONNECT.get(this), ON_DISCONNECT.get(this));
+            this.createPeer(sig, uuid);
             return sig.UUID;
         }.bind(this));
         LOBBY.set(this, lobby);
+    }
+
+    /*#*/createPeer(sig, uuid) {
+        let config = CONFIG.get(this);
+        let channels = CHANNELS.get(this);
+        let messageHandler = MESSAGE_HANDLER.get(this);
+        console.info(`SIGNALING STARTED: ${sig.UUID}`);
+        let rtc = new RTCPeer(sig, uuid, config);
+        for (let id in channels) {
+            let channel_name = channels[id];
+            rtc.openChannel(channel_name, id + 1, function(channel, msg) {
+                console.info(`${rtc.remote} [${channel}]: ${JSON.stringify(msg)}`);
+                if (messageHandler.has(channel)) {
+                    for (let callback of messageHandler.get(channel)) {
+                        callback(msg);
+                    }
+                }
+            }.bind(this)).then(function() {
+                console.info(`CHANNEL OPEN: ${channel_name}`);
+            });
+        }
+        RTC_INST.get(this).set(uuid, rtc);
+        rtc.onconnected = function() {
+            sig.close();
+            ON_CONNECT.get(this)(rtc.remote);
+            console.info(`CONNECTED: ${rtc.remote}`);
+        }.bind(this);
+        rtc.ondisconnected = function() {
+            RTC_INST.get(this).delete(rtc.remote);
+            ON_DISCONNECT.get(this)(rtc.remote);
+            console.info(`DISCONNECTED: ${rtc.remote}`);
+        }.bind(this);
+        console.info(`RTC MODULE INITIALIZED: ${rtc.remote} - ${sig.UUID}`);
+        return rtc;
     }
 
     async register(name, pass = "", desc = "") {
@@ -75,7 +89,7 @@ class RTCClient {
     }
     
     async unregister() {
-        let url = SERVICE_URL.get(this);
+        let lobby = LOBBY.get(this);
         console.info("UNREGISTER ROOM");
         return await lobby.unregister();
     }
@@ -88,7 +102,6 @@ class RTCClient {
     
     async connect(name, pass = "") {
         let url = SERVICE_URL.get(this);
-        let config = CONFIG.get(this);
         let lobby = LOBBY.get(this);
         console.info(`GET HOST UUID: ${name}`);
         let sig = new Signaling(url);
@@ -96,7 +109,7 @@ class RTCClient {
         let res = await lobby.getPeer(sig.UUID, name, pass);
         if (res.success === true) {
             console.info(`CONNECT TO: ${res.uuid}`);
-            let rtc = createPeer(sig, res.uuid, config, RTC_INST.get(this), ON_MESSAGE.get(this), ON_CONNECT.get(this), ON_DISCONNECT.get(this));
+            let rtc = this.createPeer(sig, res.uuid);
             rtc.negotiate();
         }
         return {success: res.success};
@@ -114,28 +127,38 @@ class RTCClient {
         });
     }
 
-    send(msg) {
+    send(channel, msg) {
         Array.from(RTC_INST.get(this).values()).forEach(function(rtc) {
-            rtc.send("data", msg)
+            rtc.send(channel, msg)
         });
     }
 
-    sendOne(key, msg) {
-        RTC_INST.get(this).get(key).send("data", msg);
+    sendOne(channel, uuid, msg) {
+        RTC_INST.get(this).get(uuid).send(channel, msg);
     }
 
-    sendButOne(key, msg) {
+    sendButOne(channel, uuid, msg) {
         Array.from(RTC_INST.get(this).values()).forEach(function(rtc) {
-            if (rtc.key == key) return;
-            rtc.send("data", msg);
+            if (rtc.remote == uuid) return;
+            rtc.send(channel, msg);
         });
     }
 
-    set onmessage(value) {
-        if (typeof value == "function") {
-            ON_MESSAGE.set(this, value);
+    addMessageHandler(channel, callback) {
+        let messageHandler = MESSAGE_HANDLER.get(this);
+        if (!messageHandler.has(channel)) {
+            let handlerSet = new Set;
+            handlerSet.add(callback);
+            messageHandler.set(channel, handlerSet);
         } else {
-            ON_MESSAGE.set(this, EMPTY_FN);
+            messageHandler.get(channel).add(callback);
+        }
+    }
+
+    removeMessageHandler(channel, callback) {
+        let messageHandler = MESSAGE_HANDLER.get(this);
+        if (messageHandler.has(channel)) {
+            messageHandler.get(channel).delete(callback);
         }
     }
 
