@@ -32,7 +32,7 @@ export default class Lobby {
         await client.open();
         MASTER_NAME.set(this, name);
         try {
-            let res = await Rest.post(url, {
+            return await Rest.post(url, {
                 action: "register",
                 pass: MASTER_KEY.get(this)
             }, {
@@ -78,14 +78,13 @@ export default class Lobby {
     async getPeer(uuid, name, pass = "") {
         let url = SERVICE_URL.get(this);
         try {
-            let res = await Rest.post(url, {
+            return await Rest.post(url, {
                 action: "resolve",
                 name: name,
                 pass: pass
             }, {
                 uuid: uuid
             });
-            return res;
         } catch(e) {
             return {success: false, error: e};
         }
