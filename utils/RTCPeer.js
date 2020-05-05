@@ -74,6 +74,15 @@ export default class RTCPeer {
         }.bind(this);
     }
 
+    get localID() {
+        let sigCh = SIG_CH.get(this);
+        return sigCh.UUID;
+    }
+
+    get remoteID() {
+        return REMOTE.get(this);
+    }
+
     negotiate() {
         if (RTC_STATE.get(this) != "new") {
             throw new Error("RTC already negotiating or open");
@@ -119,10 +128,6 @@ export default class RTCPeer {
         if (DATA_CHANNELS.get(this).has(name)) {
             DATA_CHANNELS.get(this).get(name).send(JSON.stringify(msg));
         }
-    }
-
-    get remote() {
-        return REMOTE.get(this);
     }
 
     set onconnected(value) {
