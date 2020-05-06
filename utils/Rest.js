@@ -1,54 +1,75 @@
-function getQuery(data) {
-    if (typeof data == "undefined" || data === "") {
-        return "";
-    }
-    if (typeof data == "object") {
-        if (Array.isArray(data)) {
-            if (data.length == 0) {
-                return "";
+async function sendRequest(url, query, config) {
+    url = new URL(url);
+    if (typeof query != "undefined") {
+        if (typeof query == "object") {
+            if (Array.isArray(query)) {
+                for (let i of query) {
+                    url.searchParams.append(i, "");
+                }
+            } else {
+                for (let i in query) {
+                    url.searchParams.append(i, query[i]);
+                }
             }
-            return `?${data.join("&")}`;
+        } else if (query != "") {
+            url.searchParams.append(query, "");
         }
-        let entries = Object.entries(data);
-        if (entries.length == 0) {
-            return "";
-        }
-        return `?${entries.map(e=>e.join("=")).join("&")}`;
     }
-    return `?${data}`;
+    config.cache = 'no-cache';
+    config.headers = config.headers ?? {};
+    config.headers['Content-Type'] = 'application/json; charset=utf-8';
+    config.headers['Cache-Control'] = 'no-cache';
+    let response = await fetch(url, config);
+    if (response.status < 200 || response.status >= 300) {
+        throw new Error(`error on ${config.method} for url "${url}" - status: ${response.status} - ${response.statusText}`);
+    }
+    let data = null;
+    if (response.headers.get('content-type').indexOf('application/json') >= 0) {
+        try {
+            data = await response.json();
+        } catch (e) { }
+    } else {
+        try {
+            data = await response.text();
+        } catch (e) { }
+    }
+    return data;
 }
 
 class Rest {
 
     async get(url, query) {
-        let res = await fetch(`${url}${getQuery(query)}`, {
+        return await sendRequest(url, query, {
             method: 'GET',
-            cache: 'no-cache',
-            headers: {
-                'Content-Type': 'application/json',
-                'Cache-Control': 'no-cache'
-            }
         });
-        if (res.status < 200 || res.status >= 300) {
-            throw new Error(`error loading file "${url}" - status: ${res.status}`);
-        }
-        return await res.json();
     }
 
-    async post(url, query, data) {
-        let res = await fetch(`${url}${getQuery(query)}`, {
-            method: 'POST',
-            cache: 'no-cache',
-            headers: {
-                'Content-Type': 'application/json',
-                'Cache-Control': 'no-cache'
-            },
-            body: JSON.stringify(data)
-        });
-        if (res.status < 200 || res.status >= 300) {
-            throw new Error(`error loading file "${url}" - status: ${res.status}`);
+    async post(url, data = {}, query) {
+        if (typeof data == "object" && !Array.isArray(data)) {
+            return await sendRequest(url, query, {
+                method: 'POST',
+                body: JSON.stringify(data)
+            });
+        } else {
+            throw new TypeError("data must be a JSON object");
         }
-        return await res.json();
+    }
+
+    async put(url, data = {}, query) {
+        if (typeof data == "object" && !Array.isArray(data)) {
+            return await sendRequest(url, query, {
+                method: 'PUT',
+                body: JSON.stringify(data)
+            });
+        } else {
+            throw new TypeError("data must be a JSON object");
+        }
+    }
+
+    async delete(url, query) {
+        return await sendRequest(url, query, {
+            method: 'DELETE',
+        });
     }
 
 }

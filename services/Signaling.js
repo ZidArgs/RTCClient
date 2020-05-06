@@ -8,7 +8,8 @@ const ON_ICE = new WeakMap();
 const ON_OFFER = new WeakMap();
 const ON_ANSWER = new WeakMap();
 
-async function onMessageRecieved(msg) {
+async function onMessageRecieved(event) {
+    let msg = event.data;
     switch(msg.type) {
         case "sdp":
             if (msg.body.type == "offer") {
@@ -29,16 +30,17 @@ export default class Signaling {
         let service_url = new URL("/signaling", url);
         SERVICE_URL.set(this, service_url);
         service_url.protocol = service_url.protocol.replace("http", "ws");
-        let client = new WebSocketClient(service_url, onMessageRecieved.bind(this));
+        let client = new WebSocketClient(service_url);
+        client.onmessage = onMessageRecieved.bind(this);
         CLIENT.set(this, client);
         ON_ICE.set(this, EMPTY_FN);
         ON_OFFER.set(this, EMPTY_FN);
         ON_ANSWER.set(this, EMPTY_FN);
     }
 
-    get UUID() {
+    get id() {
         let client = CLIENT.get(this);
-        return client.UUID;
+        return client.id;
     }
 
     async open() {

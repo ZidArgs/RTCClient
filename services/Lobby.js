@@ -15,13 +15,14 @@ export default class Lobby {
         // create websocket
         let ws_url = new URL(service_url);
         ws_url.protocol = ws_url.protocol.replace("http", "ws");
-        let client = new WebSocketClient(ws_url, async function(data) {
-            let answer = await onMessage(data.body);
+        let client = new WebSocketClient(ws_url);
+        client.onmessage = async function(event) {
+            let answer = await onMessage(event.data.body);
             client.send({
-                requestID: data.requestID,
+                requestID: event.data.requestID,
                 body: answer
             });
-        });
+        };
         CLIENT.set(this, client);
     }
 
@@ -32,14 +33,12 @@ export default class Lobby {
         await client.open();
         MASTER_NAME.set(this, name);
         try {
-            let res = await Rest.post(url, {
-                action: "register",
-                pass: MASTER_KEY.get(this)
-            }, {
+            let res = await Rest.put(url, {
                 pass: pass,
+                key: MASTER_KEY.get(this),
                 name: name,
                 desc: desc,
-                uuid: client.UUID,
+                id: client.id,
             });
             return res;
         } catch(e) {
@@ -52,15 +51,9 @@ export default class Lobby {
         let url = SERVICE_URL.get(this);
         let client = CLIENT.get(this);
         try {
-            let res = await Rest.get(url, {
-                action: "unregister",
-                name: MASTER_NAME.get(this),
-                pass: MASTER_KEY.get(this)
+            let res = await Rest.delete(`${url}/${MASTER_NAME.get(this)}`, {
+                key: MASTER_KEY.get(this)
             });
-            if (res.success === true) {
-                MASTER_NAME.delete(this);
-            }
-            client.close();
             return res;
         } catch(e) {
             return {success: false, error: e};
@@ -71,21 +64,18 @@ export default class Lobby {
         let url = SERVICE_URL.get(this);
         try {
             let res = await Rest.get(url);
-            return res;
+            return {success: true, data: res};
         } catch(e) {
             return {success: false, error: e};
         }
     }
     
-    async getPeer(uuid, name, pass = "") {
+    async getPeer(id, name, pass = "") {
         let url = SERVICE_URL.get(this);
         try {
-            let res = await Rest.post(url, {
-                action: "resolve",
-                name: name,
+            let res = await Rest.get(`${url}/${name}`, {
+                id: id,
                 pass: pass
-            }, {
-                uuid: uuid
             });
             return res;
         } catch(e) {

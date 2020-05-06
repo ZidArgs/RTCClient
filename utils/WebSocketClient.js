@@ -1,27 +1,4 @@
-class MessageBuffer {
-
-    // #messages = [];
-    constructor() {
-        this.messages = [];
-    }
-
-    add(msg) {
-        this./*#*/messages.push(msg);
-    }
-
-    next() {
-        if (!!this./*#*/messages.length) {
-            return this./*#*/messages.shift();
-        }
-    }
-
-    each(callback) {
-        while (!!this./*#*/messages.length) {
-            callback(this./*#*/messages.shift());
-        }
-    }
-
-}
+import MessageBuffer from "./MessageBuffer.js";
 
 // WebSocket
 
@@ -32,6 +9,7 @@ const SOCKET_ID = new WeakMap();
 const TIMEOUT = new WeakMap();
 const PING_OUT = 30000;
 
+const EMPTY_FN = function() {};
 const ON_MESSAGE = new WeakMap();
 
 function openSocket(that, url, onMessage) {
@@ -47,6 +25,7 @@ function openSocket(that, url, onMessage) {
             }.bind(that));
             socket.addEventListener('close', function(event) {
                 SOCKET.delete(this);
+                SOCKET_ID.delete(this);
                 clearTimeout(TIMEOUT.get(this));
                 TIMEOUT.delete(this);
             }.bind(that));
@@ -65,7 +44,10 @@ function openSocket(that, url, onMessage) {
                         resolve();
                     break;
                     case "data":
-                        onMessage(msg.data);
+                        let ev = new Event("message");
+                        ev.data = msg.data;
+                        onMessage(ev);
+                        this.dispatchEvent(ev);
                     break;
                 }
             }.bind(that));
@@ -75,22 +57,24 @@ function openSocket(that, url, onMessage) {
     });
 }
 
-export default class WebSocketClient {
+export default class WebSocketClient extends EventTarget {
 
-    constructor(url, onMessage) {
+    constructor(url) {
+        super();
         let ws_url = new URL(url);
         ws_url.protocol = ws_url.protocol.replace("http", "ws");
         SERVICE_URL.set(this, ws_url);
         MESSAGE_BUFFER.set(this, new MessageBuffer());
-        ON_MESSAGE.set(this, onMessage);
+        ON_MESSAGE.set(this, EMPTY_FN);
     }
 
-    get UUID() {
+    get id() {
         return SOCKET_ID.get(this);
     }
 
     isOpen() {
-        return SOCKET.has(this);
+        let socket = SOCKET.get(this);
+        return !!socket && socket.readyState == WebSocket.OPEN;
     }
 
     async open() {
@@ -101,8 +85,21 @@ export default class WebSocketClient {
     }
 
     close() {
-        let socket = SOCKET.get(this);
-        socket.close();
+        return new Promise((resolve, reject) => {
+            let socket = SOCKET.get(this);
+            if (!!socket && socket.readyState == WebSocket.OPEN) {
+                try {
+                    socket.addEventListener('close', (event) => {
+                        resolve();
+                    });
+                    socket.close();
+                } catch(e) {
+                    reject(e);
+                }
+            } else {
+                resolve();
+            }
+        });
     }
 
     send(data) {
@@ -113,13 +110,25 @@ export default class WebSocketClient {
             type: "data",
             data: data
         });
-        if (SOCKET.has(this)) {
-            let socket = SOCKET.get(this);
+        let socket = SOCKET.get(this);
+        if (!!socket && socket.readyState == WebSocket.OPEN) {
             socket.send(msg);
         } else {
             let buffer = MESSAGE_BUFFER.get(this);
             buffer.add(msg);
         }
+    }
+
+    set onmessage(callback) {
+        if (typeof callback == "function") {
+            ON_MESSAGE.set(this, callback);
+        } else {
+            ON_MESSAGE.set(this, EMPTY_FN);
+        }
+    }
+
+    get onmessage() {
+        return ON_MESSAGE.get(this);
     }
 
 }

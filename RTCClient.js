@@ -39,25 +39,25 @@ class RTCClient {
         RTC_INST.set(this, new Map());
         MASTER_KEY.set(this, btoa(crypto.getRandomValues(new Uint8Array(16)).join("")));
         // create lobby endpoint
-        let lobby = new Lobby(url, async function(uuid) {
-            console.info(`REQUESTED CONNECTION\nremote: ${uuid}`);
+        let lobby = new Lobby(url, async function(id) {
+            console.info(`REQUESTED CONNECTION\nremote: ${id}`);
             let sig = new Signaling(url);
             await sig.open();
-            this.createPeer(sig, uuid);
-            return sig.UUID;
+            this.createPeer(sig, id);
+            return sig.id;
         }.bind(this));
         LOBBY.set(this, lobby);
     }
 
-    /*#*/createPeer(sig, uuid) {
+    /*#*/createPeer(sig, id) {
         let config = CONFIG.get(this);
         let channels = CHANNELS.get(this);
         let messageHandler = MESSAGE_HANDLER.get(this);
-        console.info(`SIGNALING STARTED\nlocal:  ${sig.UUID}`);
-        let rtc = new RTCPeer(sig, uuid, config);
-        for (let id in channels) {
-            let channel_name = channels[id];
-            rtc.openChannel(channel_name, id + 1, function(channel, msg) {
+        console.info(`SIGNALING STARTED\nlocal:  ${sig.id}`);
+        let rtc = new RTCPeer(sig, id, config);
+        for (let chId in channels) {
+            let channel_name = channels[chId];
+            rtc.openChannel(channel_name, chId + 1, function(channel, msg) {
                 console.info(`${rtc.remoteID} [${channel}]:`, msg);
                 if (messageHandler.has(channel)) {
                     messageHandler.get(channel)(rtc.remoteID, msg);
@@ -66,23 +66,23 @@ class RTCClient {
                 console.info(`CHANNEL OPEN: ${channel_name} @ ${rtc.remoteID}`);
             });
         }
-        RTC_INST.get(this).set(uuid, rtc);
-        rtc.onconnected = function() {
+        RTC_INST.get(this).set(id, rtc);
+        rtc.addEventListener("connected", function(event) {
             sig.close();
-            console.info(`CONNECTED: ${rtc.remoteID}`);
-            ON_CONNECT.get(this)(rtc.remoteID);
-        }.bind(this);
-        rtc.onclosed = function() {
-            RTC_INST.get(this).delete(rtc.remoteID);
-            console.info(`DISCONNECTED: ${rtc.remoteID}`);
-            ON_DISCONNECT.get(this)(rtc.remoteID);
-        }.bind(this);
-        rtc.onfailed = function() {
-            console.info(`ICE FAILED: ${rtc.remoteID}`);
-            RTC_INST.get(this).delete(rtc.remoteID);
-            ON_FAILED.get(this)(rtc.remoteID);
-        }.bind(this);
-        console.info(`RTC MODULE INITIALIZED\nlocal:  ${sig.UUID}\nremote: ${rtc.remoteID}`);
+            console.info(`CONNECTED: ${event.remoteID}`);
+            ON_CONNECT.get(this)(event.remoteID);
+        }.bind(this));
+        rtc.addEventListener("closed", function(event) {
+            RTC_INST.get(this).delete(event.remoteID);
+            console.info(`DISCONNECTED: ${event.remoteID}`);
+            ON_DISCONNECT.get(this)(event.remoteID);
+        }.bind(this));
+        rtc.addEventListener("noice", function(event) {
+            console.info(`ICE FAILED: ${event.remoteID}`);
+            RTC_INST.get(this).delete(event.remoteID);
+            ON_FAILED.get(this)(event.remoteID);
+        }.bind(this));
+        console.info(`RTC MODULE INITIALIZED\nlocal:  ${sig.id}\nremote: ${rtc.remoteID}`);
         return rtc;
     }
 
@@ -111,10 +111,10 @@ class RTCClient {
         console.info(`GET HOST UUID: ${name}`);
         let sig = new Signaling(url);
         await sig.open();
-        let res = await lobby.getPeer(sig.UUID, name, pass);
+        let res = await lobby.getPeer(sig.id, name, pass);
         if (res.success === true) {
-            console.info(`CONNECT TO: ${res.uuid}`);
-            this.createPeer(sig, res.uuid).negotiate();
+            console.info(`CONNECT TO: ${res.id}`);
+            this.createPeer(sig, res.id).negotiate();
         }
         return {success: res.success};
     }
@@ -139,13 +139,13 @@ class RTCClient {
         });
     }
 
-    sendOne(channel, uuid, msg) {
-        RTC_INST.get(this).get(uuid).send(channel, msg);
+    sendOne(channel, id, msg) {
+        RTC_INST.get(this).get(id).send(channel, msg);
     }
 
-    sendButOne(channel, uuid, msg) {
+    sendButOne(channel, id, msg) {
         Array.from(RTC_INST.get(this).values()).forEach(function(rtc) {
-            if (rtc.remoteID == uuid) return;
+            if (rtc.remoteID == id) return;
             rtc.send(channel, msg);
         });
     }

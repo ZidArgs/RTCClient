@@ -50,15 +50,15 @@
 
         refresh_button.addEventListener("click", async function refresh() {
             let res = await rtc.getInstances();
-
-            instances.innerHTML = "";
-
-            res.forEach(function(el) {
-                let opt = document.createElement("option");
-                opt.value = el.name;
-                opt.innerHTML = el.name;
-                instances.append(opt);
-            });
+            if (res.success) {
+                instances.innerHTML = "";
+                res.data.forEach(function(el) {
+                    let opt = document.createElement("option");
+                    opt.value = el.name;
+                    opt.innerHTML = el.name;
+                    instances.append(opt);
+                });
+            }
         });
 
     </script>
