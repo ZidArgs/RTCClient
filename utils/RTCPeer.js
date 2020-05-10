@@ -25,7 +25,6 @@ export default class RTCPeer extends EventTarget {
         let rtc = new RTCPeerConnection(config);
         RTC.set(this, rtc);
         rtc.ontrack = function(event) {
-            ON_STREAM.get(this)();
             this.throwEvent("stream", {
                 stream: event.streams[0]
             });
@@ -39,11 +38,9 @@ export default class RTCPeer extends EventTarget {
                 case "failed":
                     console.error(`ERROR: connection to peer "${remote}" unexpectedly terrminated`);
                     rtc.close();
-                    ON_FAILED.get(this)();
                     this.throwEvent("failed");
                     break;
                 case "connected":
-                    ON_CONNECTED.get(this)();
                     this.throwEvent("connected");
                     break;
                 case "disconnected":
@@ -53,7 +50,6 @@ export default class RTCPeer extends EventTarget {
                         dch.close();
                     });
                     dataChannels.clear();
-                    ON_CLOSED.get(this)();
                     this.throwEvent("closed");
                     break;
             }
