@@ -77,8 +77,7 @@ class RTCClient {
             console.info(`DISCONNECTED: ${event.remoteID}`);
             ON_DISCONNECT.get(this)(event.remoteID);
         }.bind(this));
-        rtc.addEventListener("noice", function(event) {
-            console.info(`ICE FAILED: ${event.remoteID}`);
+        rtc.addEventListener("failed", function(event) {
             RTC_INST.get(this).delete(event.remoteID);
             ON_FAILED.get(this)(event.remoteID);
         }.bind(this));

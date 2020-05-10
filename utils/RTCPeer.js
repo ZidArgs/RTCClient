@@ -4,10 +4,7 @@ const REMOTE = new WeakMap();
 const SIG_CH = new WeakMap();
 
 const EMPTY_FN = function() {};
-const ON_CONNECTED = new WeakMap();
-const ON_CLOSED = new WeakMap();
-const ON_FAILED = new WeakMap();
-const ON_STREAM = new WeakMap();
+const EVENT_FN = new WeakMap();
 
 // TODO better error messages (include expected/current state)
 export default class RTCPeer extends EventTarget {
@@ -17,14 +14,18 @@ export default class RTCPeer extends EventTarget {
         REMOTE.set(this, remote);
         let dataChannels = new Map();
         DATA_CHANNELS.set(this, dataChannels);
-        ON_CONNECTED.set(this, EMPTY_FN);
-        ON_CLOSED.set(this, EMPTY_FN);
-        ON_FAILED.set(this, EMPTY_FN);
+        EVENT_FN.set(this, {
+            connected: EMPTY_FN,
+            closed: EMPTY_FN,
+            failed: EMPTY_FN,
+            stream: EMPTY_FN,
+        });
         SIG_CH.set(this, sigCh);
         // create RTC interface
         let rtc = new RTCPeerConnection(config);
         RTC.set(this, rtc);
         rtc.ontrack = function(event) {
+            ON_STREAM.get(this)();
             this.throwEvent("stream", {
                 stream: event.streams[0]
             });
@@ -36,12 +37,13 @@ export default class RTCPeer extends EventTarget {
             console.info(`STATE - ${remote}: ${rtc.iceConnectionState}`);
             switch(rtc.iceConnectionState) {
                 case "failed":
-                    //ON_FAILED.get(this)();
                     console.error(`ERROR: connection to peer "${remote}" unexpectedly terrminated`);
                     rtc.close();
+                    ON_FAILED.get(this)();
                     this.throwEvent("failed");
                     break;
                 case "connected":
+                    ON_CONNECTED.get(this)();
                     this.throwEvent("connected");
                     break;
                 case "disconnected":
@@ -51,6 +53,7 @@ export default class RTCPeer extends EventTarget {
                         dch.close();
                     });
                     dataChannels.clear();
+                    ON_CLOSED.get(this)();
                     this.throwEvent("closed");
                     break;
             }
@@ -60,11 +63,6 @@ export default class RTCPeer extends EventTarget {
             if (sender == remote)  {
                 if (!!candidate) {
                     rtc.addIceCandidate(candidate);
-                } else if(rtc.iceConnectionState == "new") {
-                    //ON_FAILED.get(this)();
-                    this.throwEvent("noice", {
-                        state: rtc.iceConnectionState
-                    });
                 }
             }
         }.bind(this);
@@ -89,12 +87,14 @@ export default class RTCPeer extends EventTarget {
     }
 
     /*#*/throwEvent(type, data = {}) {
+        let eventFn = EVENT_FN.get(this);
         let event = new Event(type);
         for (let id in data) {
             event[id] = data[id];
         }
         event.localID = this.localID;
         event.remoteID = this.remoteID;
+        eventFn[type](event);
         this.dispatchEvent(event);
     }
 
@@ -169,34 +169,35 @@ export default class RTCPeer extends EventTarget {
     }
 
     set onconnected(value) {
+        let eventFn = EVENT_FN.get(this);
         if (typeof value == "function") {
-            ON_CONNECTED.set(this, value);
+            eventFn.connected = value;
         } else {
-            ON_CONNECTED.set(this, EMPTY_FN);
+            eventFn.connected = EMPTY_FN;
         }
     }
 
     set onclosed(value) {
         if (typeof value == "function") {
-            ON_CLOSED.set(this, value);
+            eventFn.closed = value;
         } else {
-            ON_CLOSED.set(this, EMPTY_FN);
+            eventFn.closed = EMPTY_FN;
         }
     }
 
     set onfailed(value) {
         if (typeof value == "function") {
-            ON_FAILED.set(this, value);
+            eventFn.failed = value;
         } else {
-            ON_FAILED.set(this, EMPTY_FN);
+            eventFn.failed = EMPTY_FN;
         }
     }
 
     set onstream(value) {
         if (typeof value == "function") {
-            ON_STREAM.set(this, value);
+            eventFn.stream = value;
         } else {
-            ON_STREAM.delete(this);
+            eventFn.stream = EMPTY_FN;
         }
     }
 
