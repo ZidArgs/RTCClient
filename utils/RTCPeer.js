@@ -120,7 +120,10 @@ export default class RTCPeer extends EventTarget {
 
     close() {
         let rtc = RTC.get(this);
-        if (rtc.iceConnectionState == "completed") {
+        if (rtc.iceConnectionState == "new"
+        ||  rtc.iceConnectionState == "connected"
+        ||  rtc.iceConnectionState == "completed"
+        ||  rtc.iceConnectionState == "failed") {
             let rtc = RTC.get(this);
             rtc.close();
         } else {

@@ -10,8 +10,6 @@ const CHANNELS = new WeakMap();
 const MESSAGE_HANDLER = new WeakMap();
 
 const EMPTY_FN = function() {};
-const MASTER_KEY = new WeakMap();
-const MASTER_NAME = new WeakMap();
 const ON_CONNECT = new WeakMap();
 const ON_DISCONNECT = new WeakMap();
 const ON_FAILED = new WeakMap();
@@ -37,7 +35,6 @@ class RTCClient {
         ON_DISCONNECT.set(this, EMPTY_FN);
         ON_FAILED.set(this, EMPTY_FN);
         RTC_INST.set(this, new Map());
-        MASTER_KEY.set(this, btoa(crypto.getRandomValues(new Uint8Array(16)).join("")));
         // create lobby endpoint
         let lobby = new Lobby(url, async function(id) {
             console.info(`REQUESTED CONNECTION\nremote: ${id}`);
@@ -87,7 +84,6 @@ class RTCClient {
 
     async register(name, pass = "", desc = "") {
         let lobby = LOBBY.get(this);
-        if (MASTER_NAME.has(this)) return;
         console.info(`REGISTER ROOM: ${name}`);
         return await lobby.register(name, pass, desc);
     }
@@ -139,7 +135,10 @@ class RTCClient {
     }
 
     sendOne(channel, id, msg) {
-        RTC_INST.get(this).get(id).send(channel, msg);
+        let target = RTC_INST.get(this).get(id);
+        if (target != null) {
+            target.send(channel, msg);
+        }
     }
 
     sendButOne(channel, id, msg) {

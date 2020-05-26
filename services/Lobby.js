@@ -27,7 +27,12 @@ export default class Lobby {
     }
 
     async register(name, pass = "", desc = "") {
-        if (MASTER_NAME.has(this)) return;
+        if (MASTER_NAME.has(this)) {
+            return {
+                success: false,
+                error: "you already registered an instance"
+            };
+        }
         let url = SERVICE_URL.get(this);
         let client = CLIENT.get(this);
         await client.open();
@@ -43,7 +48,10 @@ export default class Lobby {
             return res;
         } catch(e) {
             MASTER_NAME.delete(this);
-            return {success: false, error: e};
+            return {
+                success: false,
+                error: e
+            };
         }
     }
     
@@ -54,9 +62,15 @@ export default class Lobby {
             let res = await Rest.delete(`${url}/${MASTER_NAME.get(this)}`, {
                 key: MASTER_KEY.get(this)
             });
+            if (!!res.success) {
+                MASTER_NAME.delete(this);
+            }
             return res;
         } catch(e) {
-            return {success: false, error: e};
+            return {
+                success: false,
+                error: e
+            };
         }
     }
     
@@ -64,9 +78,15 @@ export default class Lobby {
         let url = SERVICE_URL.get(this);
         try {
             let res = await Rest.get(url);
-            return {success: true, data: res};
+            return {
+                success: true,
+                data: res
+            };
         } catch(e) {
-            return {success: false, error: e};
+            return {
+                success: false,
+                error: e
+            };
         }
     }
     
@@ -79,7 +99,10 @@ export default class Lobby {
             });
             return res;
         } catch(e) {
-            return {success: false, error: e};
+            return {
+                success: false,
+                error: e
+            };
         }
     }
 

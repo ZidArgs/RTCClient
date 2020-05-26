@@ -1,6 +1,6 @@
 {
   "name": "rtcclient",
-  "version": "1.1.2",
+  "version": "1.1.3",
   "description": "simple signaling & lobby service",
   "author": "Denis Peters (ZidArgs)",
   "license": "MIT",
