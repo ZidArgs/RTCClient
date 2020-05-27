@@ -23,7 +23,7 @@ function getPort(value, def) {
     return port;
 }
 
-let LOGGER = console;
+let LOGGER = null;
 
 class RTCClient {
 
@@ -33,7 +33,7 @@ class RTCClient {
         || typeof value.info != "function"
         || typeof value.warn != "function"
         || typeof value.error != "function") {
-            LOGGER = console;
+            LOGGER = null;
         } else {
             LOGGER = value;
         }
@@ -54,7 +54,10 @@ class RTCClient {
         RTC_INST.set(this, new Map());
         // create lobby endpoint
         let lobby = new Lobby(url, async function(id) {
-            LOGGER.info(`REQUESTED CONNECTION\nremote: ${id}`);
+            if (LOGGER != null) {
+                LOGGER.info(`REQUESTED CONNECTION\nremote: ${id}`);
+            }
+            console.info(`REQUESTED CONNECTION\nremote: ${id}`);
             let sig = new Signaling(url);
             await sig.open();
             this.createPeer(sig, id);
@@ -67,28 +70,43 @@ class RTCClient {
         let config = CONFIG.get(this);
         let channels = CHANNELS.get(this);
         let messageHandler = MESSAGE_HANDLER.get(this);
-        LOGGER.info(`SIGNALING STARTED\nlocal:  ${sig.id}`);
+        if (LOGGER != null) {
+            LOGGER.info(`SIGNALING STARTED\nlocal:  ${sig.id}`);
+        }
+        console.info(`SIGNALING STARTED\nlocal:  ${sig.id}`);
         let rtc = new RTCPeer(sig, id, config);
         for (let chId in channels) {
             let channel_name = channels[chId];
             rtc.openChannel(channel_name, chId + 1, function(channel, msg) {
-                LOGGER.info(`${rtc.remoteID} [${channel}]:`, msg);
+                if (LOGGER != null) {
+                    LOGGER.info(`${rtc.remoteID} [${channel}]:`, msg);
+                }
+                console.info(`${rtc.remoteID} [${channel}]:`, msg);
                 if (messageHandler.has(channel)) {
                     messageHandler.get(channel)(rtc.remoteID, msg);
                 }
             }.bind(this)).then(function() {
-                LOGGER.info(`CHANNEL OPEN: ${channel_name} @ ${rtc.remoteID}`);
+                if (LOGGER != null) {
+                    LOGGER.info(`CHANNEL OPEN: ${channel_name} @ ${rtc.remoteID}`);
+                }
+                console.info(`CHANNEL OPEN: ${channel_name} @ ${rtc.remoteID}`);
             });
         }
         RTC_INST.get(this).set(id, rtc);
         rtc.addEventListener("connected", function(event) {
             sig.close();
-            LOGGER.info(`CONNECTED: ${event.remoteID}`);
+            if (LOGGER != null) {
+                LOGGER.info(`CONNECTED: ${event.remoteID}`);
+            }
+            console.info(`CONNECTED: ${event.remoteID}`);
             ON_CONNECT.get(this)(event.remoteID);
         }.bind(this));
         rtc.addEventListener("closed", function(event) {
             RTC_INST.get(this).delete(event.remoteID);
-            LOGGER.info(`DISCONNECTED: ${event.remoteID}`);
+            if (LOGGER != null) {
+                LOGGER.info(`DISCONNECTED: ${event.remoteID}`);
+            }
+            console.info(`DISCONNECTED: ${event.remoteID}`);
             ON_DISCONNECT.get(this)(event.remoteID);
         }.bind(this));
         rtc.addEventListener("failed", function(event) {
@@ -98,24 +116,36 @@ class RTCClient {
         rtc.addEventListener("log", function(event) {
             ON_LOG.get(this)(event.type, event.message);
         }.bind(this));
-        LOGGER.info(`RTC MODULE INITIALIZED\nlocal:  ${sig.id}\nremote: ${rtc.remoteID}`);
+        if (LOGGER != null) {
+            LOGGER.info(`RTC MODULE INITIALIZED\nlocal:  ${sig.id}\nremote: ${rtc.remoteID}`);
+        }
+        console.info(`RTC MODULE INITIALIZED\nlocal:  ${sig.id}\nremote: ${rtc.remoteID}`);
         return rtc;
     }
 
     async register(name, pass = "", desc = "") {
         let lobby = LOBBY.get(this);
-        LOGGER.info(`REGISTER ROOM: ${name}`);
+        if (LOGGER != null) {
+            LOGGER.info(`REGISTER ROOM: ${name}`);
+        }
+        console.info(`REGISTER ROOM: ${name}`);
         return await lobby.register(name, pass, desc);
     }
     
     async unregister() {
         let lobby = LOBBY.get(this);
-        LOGGER.info("UNREGISTER ROOM");
+        if (LOGGER != null) {
+            LOGGER.info("UNREGISTER ROOM");
+        }
+        console.info("UNREGISTER ROOM");
         return await lobby.unregister();
     }
     
     async getInstances() {
-        LOGGER.info("REQUEST INSTANCE LIST");
+        if (LOGGER != null) {
+            LOGGER.info("REQUEST INSTANCE LIST");
+        }
+        console.info("REQUEST INSTANCE LIST");
         let lobby = LOBBY.get(this);
         return await lobby.getInstances();
     }
@@ -123,25 +153,37 @@ class RTCClient {
     async connect(name, pass = "") {
         let url = SERVICE_URL.get(this);
         let lobby = LOBBY.get(this);
-        LOGGER.info(`GET HOST UUID: ${name}`);
+        if (LOGGER != null) {
+            LOGGER.info(`GET HOST UUID: ${name}`);
+        }
+        console.info(`GET HOST UUID: ${name}`);
         let sig = new Signaling(url);
         await sig.open();
         let res = await lobby.getPeer(sig.id, name, pass);
         if (res.success === true) {
-            LOGGER.info(`CONNECT TO: ${res.id}`);
+            if (LOGGER != null) {
+                LOGGER.info(`CONNECT TO: ${res.id}`);
+            }
+            console.info(`CONNECT TO: ${res.id}`);
             this.createPeer(sig, res.id).negotiate();
         }
         return {success: res.success};
     }
 
     async cut(key) {
-        LOGGER.info(`CUT: ${key}`);
+        if (LOGGER != null) {
+            LOGGER.info(`CUT: ${key}`);
+        }
+        console.info(`CUT: ${key}`);
         RTC_INST.get(this).get(key).close();
         RTC_INST.get(this).delete(key);
     }
 
     async disconnect() {
-        LOGGER.info("DISCONNECT");
+        if (LOGGER != null) {
+            LOGGER.info("DISCONNECT");
+        }
+        console.info("DISCONNECT");
         RTC_INST.get(this).forEach(function(rtc) {
             rtc.close();
         });

@@ -6,7 +6,7 @@ const SIG_CH = new WeakMap();
 const EMPTY_FN = function() {};
 const EVENT_FN = new WeakMap();
 
-let LOGGER = console;
+let LOGGER = null;
 
 // TODO better error messages (include expected/current state)
 export default class RTCPeer extends EventTarget {
@@ -17,7 +17,7 @@ export default class RTCPeer extends EventTarget {
         || typeof value.info != "function"
         || typeof value.warn != "function"
         || typeof value.error != "function") {
-            LOGGER = console;
+            LOGGER = null;
         } else {
             LOGGER = value;
         }
@@ -47,10 +47,16 @@ export default class RTCPeer extends EventTarget {
             sigCh.sendICE(remote, event.candidate);
         };
         rtc.oniceconnectionstatechange = function(event) {
-            LOGGER.info(`STATE - ${remote}: ${rtc.iceConnectionState}`);
+            if (LOGGER != null) {
+                LOGGER.info(`STATE - ${remote}: ${rtc.iceConnectionState}`);
+            }
+            console.info(`STATE - ${remote}: ${rtc.iceConnectionState}`);
             switch(rtc.iceConnectionState) {
                 case "failed":
-                    LOGGER.error(`ERROR: connection to peer "${remote}" unexpectedly terrminated`);
+                    if (LOGGER != null) {
+                        LOGGER.error(`ERROR: connection to peer "${remote}" unexpectedly terrminated`);
+                    }
+                    console.error(`ERROR: connection to peer "${remote}" unexpectedly terrminated`);
                     rtc.close();
                     this.printStatus();
                     this.throwEvent("failed");
@@ -72,21 +78,31 @@ export default class RTCPeer extends EventTarget {
             }
         }.bind(this);
         sigCh.onice = function(sender, candidate) {
-            LOGGER.info(`ICE - ${sender}:`, candidate);
             if (sender == remote)  {
+                let ice = new RTCIceCandidate(candidate);
+                if (LOGGER != null) {
+                    LOGGER.info(`ICE - ${sender}:`, `${ice.foundation}: ${ice.type}/${ice.protocol}`);
+                }
+                console.info(`ICE - ${sender}:`, ice);
                 if (!!candidate) {
-                    rtc.addIceCandidate(candidate);
+                    rtc.addIceCandidate(ice);
                 }
             }
         }.bind(this);
         sigCh.onanswer = function(sender, answer) {
-            LOGGER.info(`SDP [answer] - ${sender}:`, answer);
+            if (LOGGER != null) {
+                LOGGER.info(`SDP [answer] - ${sender}: recieved`);
+            }
+            console.info(`SDP [answer] - ${sender}:`, answer);
             if (sender == remote)  {
                 rtc.setRemoteDescription(answer);
             }
         };
         sigCh.onoffer = function(sender, offer) {
-            LOGGER.info(`SDP [offer] - ${sender}:`, offer);
+            if (LOGGER != null) {
+                LOGGER.info(`SDP [offer] - ${sender}: recieved`);
+            }
+            console.info(`SDP [offer] - ${sender}:`, offer);
             if (sender == remote)  {
                 rtc.setRemoteDescription(offer).then(function() {
                     rtc.createAnswer().then(function(answer) {
@@ -104,7 +120,18 @@ export default class RTCPeer extends EventTarget {
         let remote = REMOTE.get(this);
         rtc.getStats().then(stats => {
             stats.forEach(report => {
-                LOGGER.info(`RTC STATUS - ${remote}:`, report);
+                if (LOGGER != null) {
+                    LOGGER.info(`RTC STATUS - ${remote}:`, {
+                        type: report.type,
+                        state: report.state,
+                        label: report.label,
+                        networkType: report.networkType,
+                        protocol: report.protocol,
+                        relayProtocol: report.relayProtocol,
+                        candidateType: report.candidateType
+                    });
+                }
+                console.info(`RTC STATUS - ${remote}:`, report);
             });
         });
     }
