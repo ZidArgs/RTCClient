@@ -5,6 +5,30 @@
     <script type="module" defer>
         import RTCClient from "./RTCClient.js";
 
+        const log_el = document.getElementById("logger");
+        const LOGGER = {
+            log: function(...message) {
+                log_el.value += "LOG " + JSON.stringify(message, null, 4) + "\n----------------------------------------\n";
+                log_el.scrollTop = log_el.scrollHeight;
+                console.log(...message);
+            },
+            info: function(...message) {
+                log_el.value += "INFO " + JSON.stringify(message, null, 4) + "\n----------------------------------------\n";
+                log_el.scrollTop = log_el.scrollHeight;
+                console.info(...message);
+            },
+            warn: function(...message) {
+                log_el.value += "WARN " + JSON.stringify(message, null, 4) + "\n----------------------------------------\n";
+                log_el.scrollTop = log_el.scrollHeight;
+                console.warn(...message);
+            },
+            error: function(...message) {
+                log_el.value += "ERROR " + JSON.stringify(message, null, 4) + "\n----------------------------------------\n";
+                log_el.scrollTop = log_el.scrollHeight;
+                console.error(...message);
+            }
+        };
+
         const DEFAULT_CONFIG = {
             iceServers: [{
                 urls: 'stun:stun.l.google.com:19302'
@@ -24,6 +48,7 @@
         let chat_text = document.getElementById("chat_text");
         let send = document.getElementById("send");
         
+        RTCClient.setLogger(LOGGER);
         let rtc = new RTCClient(8001, DEFAULT_CONFIG, ["chat"]);
 
         rtc.setMessageHandler("chat", function(sender, msg) {
@@ -78,9 +103,13 @@
     </fieldset>
     <fieldset>
         <h3>CHAT</h3>
-        <textarea id="chat_history" style="height: 400px; width: 100%" readonly></textarea>
+        <textarea id="chat_history" style="height: 300px; width: 100%" readonly></textarea>
         <textarea id="chat_text" style="height: 100px; width: 100%"></textarea>
         <button id="send">send</button>
+    </fieldset>
+    <fieldset>
+        <h3>LOG</h3>
+        <textarea id="logger" style="height: 300px; width: 100%" readonly></textarea>
     </fieldset>
 </body>
 

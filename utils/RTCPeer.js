@@ -6,8 +6,22 @@ const SIG_CH = new WeakMap();
 const EMPTY_FN = function() {};
 const EVENT_FN = new WeakMap();
 
+let LOGGER = console;
+
 // TODO better error messages (include expected/current state)
 export default class RTCPeer extends EventTarget {
+
+    static setLogger(value) {
+        if (value == null
+        || typeof value.log != "function"
+        || typeof value.info != "function"
+        || typeof value.warn != "function"
+        || typeof value.error != "function") {
+            LOGGER = console;
+        } else {
+            LOGGER = value;
+        }
+    }
 
     constructor(sigCh, remote, config = {}) {
         super();
@@ -18,7 +32,7 @@ export default class RTCPeer extends EventTarget {
             connected: EMPTY_FN,
             closed: EMPTY_FN,
             failed: EMPTY_FN,
-            stream: EMPTY_FN,
+            stream: EMPTY_FN
         });
         SIG_CH.set(this, sigCh);
         // create RTC interface
@@ -33,14 +47,16 @@ export default class RTCPeer extends EventTarget {
             sigCh.sendICE(remote, event.candidate);
         };
         rtc.oniceconnectionstatechange = function(event) {
-            console.info(`STATE - ${remote}: ${rtc.iceConnectionState}`);
+            LOGGER.info(`STATE - ${remote}: ${rtc.iceConnectionState}`);
             switch(rtc.iceConnectionState) {
                 case "failed":
-                    console.error(`ERROR: connection to peer "${remote}" unexpectedly terrminated`);
+                    LOGGER.error(`ERROR: connection to peer "${remote}" unexpectedly terrminated`);
                     rtc.close();
+                    this.printStatus();
                     this.throwEvent("failed");
                     break;
                 case "connected":
+                    this.printStatus();
                     this.throwEvent("connected");
                     break;
                 case "disconnected":
@@ -50,12 +66,13 @@ export default class RTCPeer extends EventTarget {
                         dch.close();
                     });
                     dataChannels.clear();
+                    this.printStatus();
                     this.throwEvent("closed");
                     break;
             }
         }.bind(this);
         sigCh.onice = function(sender, candidate) {
-            console.info(`ICE - ${sender}:`, candidate);
+            LOGGER.info(`ICE - ${sender}:`, candidate);
             if (sender == remote)  {
                 if (!!candidate) {
                     rtc.addIceCandidate(candidate);
@@ -63,13 +80,13 @@ export default class RTCPeer extends EventTarget {
             }
         }.bind(this);
         sigCh.onanswer = function(sender, answer) {
-            console.info(`SDP - ${sender}:`, answer);
+            LOGGER.info(`SDP [answer] - ${sender}:`, answer);
             if (sender == remote)  {
                 rtc.setRemoteDescription(answer);
             }
         };
         sigCh.onoffer = function(sender, offer) {
-            console.info(`SDP - ${sender}:`, offer);
+            LOGGER.info(`SDP [offer] - ${sender}:`, offer);
             if (sender == remote)  {
                 rtc.setRemoteDescription(offer).then(function() {
                     rtc.createAnswer().then(function(answer) {
@@ -80,6 +97,16 @@ export default class RTCPeer extends EventTarget {
                 });
             }
         }.bind(this);
+    }
+
+    /*#*/printStatus() {
+        let rtc = RTC.get(this);
+        let remote = REMOTE.get(this);
+        rtc.getStats().then(stats => {
+            stats.forEach(report => {
+                LOGGER.info(`RTC STATUS - ${remote}:`, report);
+            });
+        });
     }
 
     /*#*/throwEvent(type, data = {}) {
@@ -101,6 +128,11 @@ export default class RTCPeer extends EventTarget {
 
     get remoteID() {
         return REMOTE.get(this);
+    }
+
+    getStats() {
+        let rtc = RTC.get(this);
+        return rtc.getStats();
     }
 
     negotiate() {
