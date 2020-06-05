@@ -1,7 +1,10 @@
+import MessageBuffer from "./MessageBuffer.js";
+
 const RTC = new WeakMap();
 const DATA_CHANNELS = new WeakMap();
 const REMOTE = new WeakMap();
 const SIG_CH = new WeakMap();
+const MESSAGE_BUFFER = new WeakMap();
 
 const EMPTY_FN = function() {};
 const EVENT_FN = new WeakMap();
@@ -25,6 +28,7 @@ export default class RTCPeer extends EventTarget {
 
     constructor(sigCh, remote, config = {}) {
         super();
+        MESSAGE_BUFFER.set(this, new Map());
         REMOTE.set(this, remote);
         let dataChannels = new Map();
         DATA_CHANNELS.set(this, dataChannels);
@@ -78,14 +82,16 @@ export default class RTCPeer extends EventTarget {
             }
         }.bind(this);
         sigCh.onice = function(sender, candidate) {
-            if (sender == remote)  {
-                let ice = new RTCIceCandidate(candidate);
-                if (LOGGER != null) {
-                    LOGGER.info(`ICE - ${sender}:`, `${ice.foundation}: ${ice.type}/${ice.protocol}`);
-                }
+            if (sender == remote) {
                 console.info(`ICE - ${sender}:`, ice);
-                if (!!candidate) {
+                if (candidate != null) {
+                    let ice = new RTCIceCandidate(candidate);
+                    if (LOGGER != null) {
+                        LOGGER.info(`ICE - ${sender}:`, `${ice.foundation}: ${ice.type}/${ice.protocol}`);
+                    }
                     rtc.addIceCandidate(ice);
+                } else if (LOGGER != null) {
+                    LOGGER.info(`ICE - ${sender}:`, null);
                 }
             }
         }.bind(this);
@@ -192,11 +198,15 @@ export default class RTCPeer extends EventTarget {
 
     openChannel(name, id, callback) {
         return new Promise((resolve, reject) => {
+            let messageBuffer = MESSAGE_BUFFER.get(this);
+            messageBuffer.set(name, new MessageBuffer());
             let rtc = RTC.get(this);
             let dataChannels = DATA_CHANNELS.get(this);
             var dch = rtc.createDataChannel(name, {negotiated: true, id: id});
             dch.onopen = function(event) {
                 dataChannels.set(name, dch);
+                messageBuffer.get(name).forEach(msg => dch.send(msg));
+                messageBuffer.remove(name);
                 resolve();
             }.bind(this);
             dch.onclose = function(event) {
@@ -220,9 +230,16 @@ export default class RTCPeer extends EventTarget {
     }
 
     send(name, msg) {
+        let messageBuffer = MESSAGE_BUFFER.get(this);
         let dataChannels = DATA_CHANNELS.get(this);
         if (dataChannels.has(name)) {
-            dataChannels.get(name).send(JSON.stringify(msg));
+            msg = JSON.stringify(msg);
+            let dch = dataChannels.get(name);
+            if (dch.readyState == "open") {
+                dch.send(msg);
+            } else if (messageBuffer.has(name)) {
+                messageBuffer.get(name).add(msg);
+            }
         }
     }
 
