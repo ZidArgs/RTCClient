@@ -38,7 +38,7 @@ export default class Lobby {
         await client.open();
         MASTER_NAME.set(this, name);
         try {
-            let res = await Rest.put(url, {
+            let res = await Rest.post(`${url}/register`, {
                 pass: pass,
                 key: MASTER_KEY.get(this),
                 name: name,
@@ -59,7 +59,8 @@ export default class Lobby {
         let url = SERVICE_URL.get(this);
         let client = CLIENT.get(this);
         try {
-            let res = await Rest.delete(`${url}/${MASTER_NAME.get(this)}`, {
+            let res = await Rest.post(`${url}/remove`, {
+                name: MASTER_NAME.get(this),
                 key: MASTER_KEY.get(this)
             });
             if (!!res.success) {
@@ -93,7 +94,8 @@ export default class Lobby {
     async getPeer(id, name, pass = "") {
         let url = SERVICE_URL.get(this);
         try {
-            let res = await Rest.get(`${url}/${name}`, {
+            let res = await Rest.post(`${url}/get`, {
+                name: name,
                 id: id,
                 pass: pass
             });
