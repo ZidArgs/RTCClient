@@ -209,7 +209,7 @@ export default class RTCPeer extends EventTarget {
             dch.onopen = function(event) {
                 dataChannels.set(name, dch);
                 messageBuffer.get(name).each(msg => dch.send(msg));
-                messageBuffer.remove(name);
+                messageBuffer.delete(name);
                 resolve();
             }.bind(this);
             dch.onclose = function(event) {
