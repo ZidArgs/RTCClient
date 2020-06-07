@@ -83,15 +83,18 @@ export default class RTCPeer extends EventTarget {
         }.bind(this);
         sigCh.onice = function(sender, candidate) {
             if (sender == remote) {
-                console.info(`ICE - ${sender}:`, ice);
                 if (candidate != null) {
                     let ice = new RTCIceCandidate(candidate);
+                    console.info(`ICE - ${sender}:`, ice);
                     if (LOGGER != null) {
                         LOGGER.info(`ICE - ${sender}:`, `${ice.foundation}: ${ice.type}/${ice.protocol}`);
                     }
                     rtc.addIceCandidate(ice);
-                } else if (LOGGER != null) {
-                    LOGGER.info(`ICE - ${sender}:`, null);
+                } else {
+                    console.info(`ICE - ${sender}:`, null);
+                    if (LOGGER != null) {
+                        LOGGER.info(`ICE - ${sender}:`, null);
+                    }
                 }
             }
         }.bind(this);
