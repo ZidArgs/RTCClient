@@ -16,7 +16,7 @@ const ON_FAILED = new WeakMap();
 const ON_LOG = new WeakMap();
 
 function getPort(value, def) {
-    let port = parseInt(value);
+    const port = parseInt(value);
     if (isNaN(port)) {
         return def;
     }
@@ -41,7 +41,7 @@ class RTCClient {
     }
 
     constructor(port, config = {}, channels = []) {
-        let url = new URL(location);
+        const url = new URL(location);
         url.port = getPort(port, url.port);
         SERVICE_URL.set(this, url);
         MESSAGE_HANDLER.set(this, new Map());
@@ -53,12 +53,12 @@ class RTCClient {
         ON_LOG.set(this, EMPTY_FN);
         RTC_INST.set(this, new Map());
         // create lobby endpoint
-        let lobby = new Lobby(url, async function(id) {
+        const lobby = new Lobby(url, async function(id) {
             if (LOGGER != null) {
                 LOGGER.info(`REQUESTED CONNECTION\nremote: ${id}`);
             }
             console.info(`REQUESTED CONNECTION\nremote: ${id}`);
-            let sig = new Signaling(url);
+            const sig = new Signaling(url);
             await sig.open();
             this.createPeer(sig, id);
             return sig.id;
@@ -67,16 +67,16 @@ class RTCClient {
     }
 
     /*#*/createPeer(sig, id) {
-        let config = CONFIG.get(this);
-        let channels = CHANNELS.get(this);
-        let messageHandler = MESSAGE_HANDLER.get(this);
+        const config = CONFIG.get(this);
+        const channels = CHANNELS.get(this);
+        const messageHandler = MESSAGE_HANDLER.get(this);
         if (LOGGER != null) {
             LOGGER.info(`SIGNALING STARTED\nlocal:  ${sig.id}`);
         }
         console.info(`SIGNALING STARTED\nlocal:  ${sig.id}`);
-        let rtc = new RTCPeer(sig, id, config);
-        for (let chId in channels) {
-            let channel_name = channels[chId];
+        const rtc = new RTCPeer(sig, id, config);
+        for (const chId in channels) {
+            const channel_name = channels[chId];
             rtc.openChannel(channel_name, chId + 1, function(channel, msg) {
                 if (LOGGER != null) {
                     LOGGER.info(`${rtc.remoteID} [${channel}]:`, msg);
@@ -124,7 +124,7 @@ class RTCClient {
     }
 
     async register(name, pass = "", desc = "") {
-        let lobby = LOBBY.get(this);
+        const lobby = LOBBY.get(this);
         if (LOGGER != null) {
             LOGGER.info(`REGISTER ROOM: ${name}`);
         }
@@ -133,7 +133,7 @@ class RTCClient {
     }
     
     async unregister() {
-        let lobby = LOBBY.get(this);
+        const lobby = LOBBY.get(this);
         if (LOGGER != null) {
             LOGGER.info("UNREGISTER ROOM");
         }
@@ -146,20 +146,20 @@ class RTCClient {
             LOGGER.info("REQUEST INSTANCE LIST");
         }
         console.info("REQUEST INSTANCE LIST");
-        let lobby = LOBBY.get(this);
+        const lobby = LOBBY.get(this);
         return await lobby.getInstances();
     }
     
     async connect(name, pass = "") {
-        let url = SERVICE_URL.get(this);
-        let lobby = LOBBY.get(this);
+        const url = SERVICE_URL.get(this);
+        const lobby = LOBBY.get(this);
         if (LOGGER != null) {
             LOGGER.info(`GET HOST UUID: ${name}`);
         }
         console.info(`GET HOST UUID: ${name}`);
-        let sig = new Signaling(url);
+        const sig = new Signaling(url);
         await sig.open();
-        let res = await lobby.getPeer(sig.id, name, pass);
+        const res = await lobby.getPeer(sig.id, name, pass);
         if (res.success === true) {
             if (LOGGER != null) {
                 LOGGER.info(`CONNECT TO: ${res.id}`);
@@ -191,7 +191,7 @@ class RTCClient {
     }
 
     getStats(id) {
-        let target = RTC_INST.get(this).get(id);
+        const target = RTC_INST.get(this).get(id);
         if (target != null) {
             return target.getStats();
         } else {
@@ -206,7 +206,7 @@ class RTCClient {
     }
 
     sendOne(channel, id, msg) {
-        let target = RTC_INST.get(this).get(id);
+        const target = RTC_INST.get(this).get(id);
         if (target != null) {
             target.send(channel, msg);
         }
@@ -220,7 +220,7 @@ class RTCClient {
     }
 
     setMessageHandler(channel, callback) {
-        let messageHandler = MESSAGE_HANDLER.get(this);
+        const messageHandler = MESSAGE_HANDLER.get(this);
         if (typeof callback == "function") {
             messageHandler.set(channel, callback);
         } else {

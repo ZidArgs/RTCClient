@@ -30,7 +30,7 @@ export default class RTCPeer extends EventTarget {
         super();
         MESSAGE_BUFFER.set(this, new Map());
         REMOTE.set(this, remote);
-        let dataChannels = new Map();
+        const dataChannels = new Map();
         DATA_CHANNELS.set(this, dataChannels);
         EVENT_FN.set(this, {
             connected: EMPTY_FN,
@@ -40,7 +40,7 @@ export default class RTCPeer extends EventTarget {
         });
         SIG_CH.set(this, sigCh);
         // create RTC interface
-        let rtc = new RTCPeerConnection(config);
+        const rtc = new RTCPeerConnection(config);
         RTC.set(this, rtc);
         rtc.ontrack = function(event) {
             this.throwEvent("stream", {
@@ -55,7 +55,7 @@ export default class RTCPeer extends EventTarget {
                 LOGGER.info(`STATE - ${remote}: ${rtc.iceConnectionState}`);
             }
             console.info(`STATE - ${remote}: ${rtc.iceConnectionState}`);
-            switch(rtc.iceConnectionState) {
+            switch (rtc.iceConnectionState) {
                 case "failed":
                     if (LOGGER != null) {
                         LOGGER.error(`ERROR: connection to peer "${remote}" unexpectedly terrminated`);
@@ -71,6 +71,13 @@ export default class RTCPeer extends EventTarget {
                     break;
                 case "disconnected":
                     rtc.close();
+                    dataChannels.forEach(dch => {
+                        dch.close();
+                    });
+                    dataChannels.clear();
+                    this.printStatus();
+                    this.throwEvent("closed");
+                    break;
                 case "closed":
                     dataChannels.forEach(dch => {
                         dch.close();
@@ -84,7 +91,7 @@ export default class RTCPeer extends EventTarget {
         sigCh.onice = function(sender, candidate) {
             if (sender == remote) {
                 if (candidate != null) {
-                    let ice = new RTCIceCandidate(candidate);
+                    const ice = new RTCIceCandidate(candidate);
                     console.info(`ICE - ${sender}:`, ice);
                     if (LOGGER != null) {
                         LOGGER.info(`ICE - ${sender}:`, `${ice.foundation}: ${ice.type}/${ice.protocol}`);
@@ -125,8 +132,8 @@ export default class RTCPeer extends EventTarget {
     }
 
     /*#*/printStatus() {
-        let rtc = RTC.get(this);
-        let remote = REMOTE.get(this);
+        const rtc = RTC.get(this);
+        const remote = REMOTE.get(this);
         rtc.getStats().then(stats => {
             stats.forEach(report => {
                 if (LOGGER != null) {
@@ -146,9 +153,9 @@ export default class RTCPeer extends EventTarget {
     }
 
     /*#*/throwEvent(type, data = {}) {
-        let eventFn = EVENT_FN.get(this);
-        let event = new Event(type);
-        for (let id in data) {
+        const eventFn = EVENT_FN.get(this);
+        const event = new Event(type);
+        for (const id in data) {
             event[id] = data[id];
         }
         event.localID = this.localID;
@@ -158,7 +165,7 @@ export default class RTCPeer extends EventTarget {
     }
 
     get localID() {
-        let sigCh = SIG_CH.get(this);
+        const sigCh = SIG_CH.get(this);
         return sigCh.UUID;
     }
 
@@ -167,17 +174,17 @@ export default class RTCPeer extends EventTarget {
     }
 
     getStats() {
-        let rtc = RTC.get(this);
+        const rtc = RTC.get(this);
         return rtc.getStats();
     }
 
     negotiate() {
-        let rtc = RTC.get(this);
+        const rtc = RTC.get(this);
         if (rtc.iceConnectionState != "new") {
             throw new Error("RTC connecting or already connected");
         } else {
-            let sigCh = SIG_CH.get(this);
-            let remote = REMOTE.get(this);
+            const sigCh = SIG_CH.get(this);
+            const remote = REMOTE.get(this);
             rtc.createOffer().then(function(offer) {
                 rtc.setLocalDescription(offer).then(function() {
                     sigCh.sendSDP(remote, offer);
@@ -187,12 +194,12 @@ export default class RTCPeer extends EventTarget {
     }
 
     close() {
-        let rtc = RTC.get(this);
+        const rtc = RTC.get(this);
         if (rtc.iceConnectionState == "new"
         ||  rtc.iceConnectionState == "connected"
         ||  rtc.iceConnectionState == "completed"
         ||  rtc.iceConnectionState == "failed") {
-            let rtc = RTC.get(this);
+            const rtc = RTC.get(this);
             rtc.close();
         } else {
             throw new Error("RTC not connected");
@@ -201,10 +208,10 @@ export default class RTCPeer extends EventTarget {
 
     openChannel(name, id, callback) {
         return new Promise((resolve, reject) => {
-            let messageBuffer = MESSAGE_BUFFER.get(this);
+            const messageBuffer = MESSAGE_BUFFER.get(this);
             messageBuffer.set(name, new MessageBuffer());
-            let rtc = RTC.get(this);
-            let dataChannels = DATA_CHANNELS.get(this);
+            const rtc = RTC.get(this);
+            const dataChannels = DATA_CHANNELS.get(this);
             var dch = rtc.createDataChannel(name, {negotiated: true, id: id});
             dch.onopen = function(event) {
                 dataChannels.set(name, dch);
@@ -223,7 +230,7 @@ export default class RTCPeer extends EventTarget {
 
     addStream(stream) {
         if (stream instanceof MediaStream) {
-            let rtc = RTC.get(this);
+            const rtc = RTC.get(this);
             stream.getTracks().forEach(function(track) {
                 rtc.addTrack(track, stream);
             });
@@ -233,11 +240,11 @@ export default class RTCPeer extends EventTarget {
     }
 
     send(name, msg) {
-        let messageBuffer = MESSAGE_BUFFER.get(this);
-        let dataChannels = DATA_CHANNELS.get(this);
+        const messageBuffer = MESSAGE_BUFFER.get(this);
+        const dataChannels = DATA_CHANNELS.get(this);
         if (dataChannels.has(name)) {
             msg = JSON.stringify(msg);
-            let dch = dataChannels.get(name);
+            const dch = dataChannels.get(name);
             if (dch.readyState == "open") {
                 dch.send(msg);
             } else if (messageBuffer.has(name)) {
@@ -247,7 +254,7 @@ export default class RTCPeer extends EventTarget {
     }
 
     set onconnected(value) {
-        let eventFn = EVENT_FN.get(this);
+        const eventFn = EVENT_FN.get(this);
         if (typeof value == "function") {
             eventFn.connected = value;
         } else {
@@ -256,6 +263,7 @@ export default class RTCPeer extends EventTarget {
     }
 
     set onclosed(value) {
+        const eventFn = EVENT_FN.get(this);
         if (typeof value == "function") {
             eventFn.closed = value;
         } else {
@@ -264,6 +272,7 @@ export default class RTCPeer extends EventTarget {
     }
 
     set onfailed(value) {
+        const eventFn = EVENT_FN.get(this);
         if (typeof value == "function") {
             eventFn.failed = value;
         } else {
@@ -272,6 +281,7 @@ export default class RTCPeer extends EventTarget {
     }
 
     set onstream(value) {
+        const eventFn = EVENT_FN.get(this);
         if (typeof value == "function") {
             eventFn.stream = value;
         } else {

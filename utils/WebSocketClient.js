@@ -15,9 +15,9 @@ const ON_MESSAGE = new WeakMap();
 function openSocket(that, url, onMessage) {
     return new Promise(function(resolve, reject) {
         try {
-            let socket = new WebSocket(url);
+            const socket = new WebSocket(url);
             socket.addEventListener('open', function(event) {
-                let buffer = MESSAGE_BUFFER.get(this);
+                const buffer = MESSAGE_BUFFER.get(this);
                 buffer.each(msg => this.send(msg));
                 SOCKET.set(this, socket);
                 clearTimeout(TIMEOUT.get(this));
@@ -30,25 +30,27 @@ function openSocket(that, url, onMessage) {
                 TIMEOUT.delete(this);
             }.bind(that));
             socket.addEventListener('message', function(event) {
-                let socket = SOCKET.get(this);
-                let msg = JSON.parse(event.data);
-                switch(msg.type) {
+                const socket = SOCKET.get(this);
+                const msg = JSON.parse(event.data);
+                switch (msg.type) {
                     case "ping":
                         clearTimeout(TIMEOUT.get(this));
                         TIMEOUT.set(this, setTimeout(()=>socket.close(), PING_OUT));
                         msg.type = "pong";
                         socket.send(JSON.stringify(msg));
-                    break;
+                        break;
                     case "uuid":
                         SOCKET_ID.set(this, msg.data);
                         resolve();
-                    break;
+                        break;
                     case "data":
-                        let ev = new Event("message");
-                        ev.data = msg.data;
-                        onMessage(ev);
-                        this.dispatchEvent(ev);
-                    break;
+                        {
+                            const ev = new Event("message");
+                            ev.data = msg.data;
+                            onMessage(ev);
+                            this.dispatchEvent(ev);
+                        }
+                        break;
                 }
             }.bind(that));
         } catch(e) {
@@ -61,7 +63,7 @@ export default class WebSocketClient extends EventTarget {
 
     constructor(url) {
         super();
-        let ws_url = new URL(url);
+        const ws_url = new URL(url);
         ws_url.protocol = ws_url.protocol.replace("http", "ws");
         SERVICE_URL.set(this, ws_url);
         MESSAGE_BUFFER.set(this, new MessageBuffer());
@@ -73,20 +75,20 @@ export default class WebSocketClient extends EventTarget {
     }
 
     isOpen() {
-        let socket = SOCKET.get(this);
+        const socket = SOCKET.get(this);
         return !!socket && socket.readyState == WebSocket.OPEN;
     }
 
     async open() {
         if (!SOCKET.has(this)) {
-            let url = SERVICE_URL.get(this);
+            const url = SERVICE_URL.get(this);
             await openSocket(this, url, ON_MESSAGE.get(this));
         }
     }
 
     close() {
         return new Promise((resolve, reject) => {
-            let socket = SOCKET.get(this);
+            const socket = SOCKET.get(this);
             if (!!socket && socket.readyState == WebSocket.OPEN) {
                 try {
                     socket.addEventListener('close', (event) => {
@@ -106,15 +108,15 @@ export default class WebSocketClient extends EventTarget {
         if (typeof data == "undefined") {
             throw new Error("can not send undefined data");
         }
-        let msg = JSON.stringify({
+        const msg = JSON.stringify({
             type: "data",
             data: data
         });
-        let socket = SOCKET.get(this);
+        const socket = SOCKET.get(this);
         if (!!socket && socket.readyState == WebSocket.OPEN) {
             socket.send(msg);
         } else {
-            let buffer = MESSAGE_BUFFER.get(this);
+            const buffer = MESSAGE_BUFFER.get(this);
             buffer.add(msg);
         }
     }

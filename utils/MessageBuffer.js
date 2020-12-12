@@ -9,13 +9,13 @@ export default class MessageBuffer {
     }
 
     next() {
-        if (!!this.messages.length) {
+        if (this.messages.length) {
             return this.messages.shift();
         }
     }
 
     each(callback) {
-        while (!!this.messages.length) {
+        while (this.messages.length) {
             callback(this.messages.shift());
         }
     }
