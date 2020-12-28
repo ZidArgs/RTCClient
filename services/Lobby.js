@@ -26,7 +26,7 @@ export default class Lobby {
         CLIENT.set(this, client);
     }
 
-    async register(name, pass = "", desc = "") {
+    async register(name, pass = "", desc = "", version = 0, data = {}) {
         if (MASTER_NAME.has(this)) {
             return {
                 success: false,
@@ -39,10 +39,12 @@ export default class Lobby {
         MASTER_NAME.set(this, name);
         try {
             const res = await Rest.post(`${url}/register`, {
-                pass: pass,
+                name,
+                pass,
+                desc,
+                version,
+                data,
                 key: MASTER_KEY.get(this),
-                name: name,
-                desc: desc,
                 id: client.id
             });
             return res;
@@ -94,9 +96,9 @@ export default class Lobby {
         const url = SERVICE_URL.get(this);
         try {
             const res = await Rest.post(`${url}/get`, {
-                name: name,
-                id: id,
-                pass: pass
+                name,
+                id,
+                pass
             });
             return res;
         } catch(e) {

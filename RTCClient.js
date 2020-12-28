@@ -123,13 +123,13 @@ class RTCClient {
         return rtc;
     }
 
-    async register(name, pass = "", desc = "") {
+    async register(name, pass = "", desc = "", version = 0, data = {}) {
         const lobby = LOBBY.get(this);
         if (LOGGER != null) {
             LOGGER.info(`REGISTER ROOM: ${name}`);
         }
         console.info(`REGISTER ROOM: ${name}`);
-        return await lobby.register(name, pass, desc);
+        return await lobby.register(name, pass, desc, version, data);
     }
     
     async unregister() {
