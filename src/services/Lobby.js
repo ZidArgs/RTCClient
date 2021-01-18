@@ -16,13 +16,13 @@ export default class Lobby {
         const ws_url = new URL(service_url);
         ws_url.protocol = ws_url.protocol.replace("http", "ws");
         const client = new WebSocketClient(ws_url);
-        client.onmessage = async function(event) {
+        client.addEventListener("message", async event => {
             const answer = await onMessage(event.data.body);
             client.send({
                 requestID: event.data.requestID,
                 body: answer
             });
-        };
+        });
         CLIENT.set(this, client);
     }
 
@@ -92,18 +92,20 @@ export default class Lobby {
         }
     }
     
-    async getPeer(id, name, pass = "") {
+    async getPeer(id, name, pass = "", version = 0) {
         const url = SERVICE_URL.get(this);
         try {
             const res = await Rest.post(`${url}/get`, {
                 name,
                 id,
-                pass
+                pass,
+                version
             });
             return res;
         } catch(e) {
             return {
                 success: false,
+                reason: "connection problem",
                 error: e
             };
         }

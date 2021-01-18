@@ -9,12 +9,6 @@ const RTC_INST = new WeakMap();
 const CHANNELS = new WeakMap();
 const MESSAGE_HANDLER = new WeakMap();
 
-const EMPTY_FN = function() {};
-const ON_CONNECT = new WeakMap();
-const ON_DISCONNECT = new WeakMap();
-const ON_FAILED = new WeakMap();
-const ON_LOG = new WeakMap();
-
 function getPort(value, def) {
     const port = parseInt(value);
     if (isNaN(port)) {
@@ -25,7 +19,7 @@ function getPort(value, def) {
 
 let LOGGER = null;
 
-class RTCClient {
+class RTCClient extends EventTarget {
 
     static setLogger(value) {
         if (value == null
@@ -41,32 +35,29 @@ class RTCClient {
     }
 
     constructor(port, config = {}, channels = []) {
+        super();
         const url = new URL(location);
         url.port = getPort(port, url.port);
         SERVICE_URL.set(this, url);
         MESSAGE_HANDLER.set(this, new Map());
         CONFIG.set(this, config);
         CHANNELS.set(this, channels);
-        ON_CONNECT.set(this, EMPTY_FN);
-        ON_DISCONNECT.set(this, EMPTY_FN);
-        ON_FAILED.set(this, EMPTY_FN);
-        ON_LOG.set(this, EMPTY_FN);
         RTC_INST.set(this, new Map());
         // create lobby endpoint
-        const lobby = new Lobby(url, async function(id) {
+        const lobby = new Lobby(url, async id => {
             if (LOGGER != null) {
                 LOGGER.info(`REQUESTED CONNECTION\nremote: ${id}`);
             }
             console.info(`REQUESTED CONNECTION\nremote: ${id}`);
             const sig = new Signaling(url);
             await sig.open();
-            this.createPeer(sig, id);
+            this./*#*/__createPeer(sig, id);
             return sig.id;
-        }.bind(this));
+        });
         LOBBY.set(this, lobby);
     }
 
-    /*#*/createPeer(sig, id) {
+    /*#*/__createPeer(sig, id) {
         const config = CONFIG.get(this);
         const channels = CHANNELS.get(this);
         const messageHandler = MESSAGE_HANDLER.get(this);
@@ -99,7 +90,10 @@ class RTCClient {
                 LOGGER.info(`CONNECTED: ${event.remoteID}`);
             }
             console.info(`CONNECTED: ${event.remoteID}`);
-            ON_CONNECT.get(this)(event.remoteID);
+            /* event */
+            const ev = new Event("connected");
+            ev.remoteID = event.remoteID;
+            this.dispatchEvent(ev);
         }.bind(this));
         rtc.addEventListener("closed", function(event) {
             RTC_INST.get(this).delete(event.remoteID);
@@ -107,14 +101,24 @@ class RTCClient {
                 LOGGER.info(`DISCONNECTED: ${event.remoteID}`);
             }
             console.info(`DISCONNECTED: ${event.remoteID}`);
-            ON_DISCONNECT.get(this)(event.remoteID);
+            /* event */
+            const ev = new Event("closed");
+            ev.remoteID = event.remoteID;
+            this.dispatchEvent(ev);
         }.bind(this));
         rtc.addEventListener("failed", function(event) {
             RTC_INST.get(this).delete(event.remoteID);
-            ON_FAILED.get(this)(event.remoteID);
+            /* event */
+            const ev = new Event("failed");
+            ev.remoteID = event.remoteID;
+            this.dispatchEvent(ev);
         }.bind(this));
         rtc.addEventListener("log", function(event) {
-            ON_LOG.get(this)(event.type, event.message);
+            /* event */
+            const ev = new Event("log");
+            ev.type = event.type;
+            ev.message = event.message;
+            this.dispatchEvent(ev);
         }.bind(this));
         if (LOGGER != null) {
             LOGGER.info(`RTC MODULE INITIALIZED\nlocal:  ${sig.id}\nremote: ${rtc.remoteID}`);
@@ -150,7 +154,7 @@ class RTCClient {
         return await lobby.getInstances();
     }
     
-    async connect(name, pass = "") {
+    async connect(name, pass = "", version = 0) {
         const url = SERVICE_URL.get(this);
         const lobby = LOBBY.get(this);
         if (LOGGER != null) {
@@ -159,15 +163,17 @@ class RTCClient {
         console.info(`GET HOST UUID: ${name}`);
         const sig = new Signaling(url);
         await sig.open();
-        const res = await lobby.getPeer(sig.id, name, pass);
+        const res = await lobby.getPeer(sig.id, name, pass, version);
         if (res.success === true) {
             if (LOGGER != null) {
                 LOGGER.info(`CONNECT TO: ${res.id}`);
             }
             console.info(`CONNECT TO: ${res.id}`);
-            this.createPeer(sig, res.id).negotiate();
+            this./*#*/__createPeer(sig, res.id).negotiate();
+            return {success: true};
+        } else {
+            return {success: false, error: res.error};
         }
-        return {success: res.success};
     }
 
     async cut(key) {
@@ -225,38 +231,6 @@ class RTCClient {
             messageHandler.set(channel, callback);
         } else {
             messageHandler.delete(channel);
-        }
-    }
-
-    set onconnect(value) {
-        if (typeof value == "function") {
-            ON_CONNECT.set(this, value);
-        } else {
-            ON_CONNECT.set(this, EMPTY_FN);
-        }
-    }
-
-    set ondisconnect(value) {
-        if (typeof value == "function") {
-            ON_DISCONNECT.set(this, value);
-        } else {
-            ON_DISCONNECT.set(this, EMPTY_FN);
-        }
-    }
-
-    set onfailed(value) {
-        if (typeof value == "function") {
-            ON_FAILED.set(this, value);
-        } else {
-            ON_FAILED.set(this, EMPTY_FN);
-        }
-    }
-
-    set onlog(value) {
-        if (typeof value == "function") {
-            ON_LOG.set(this, value);
-        } else {
-            ON_LOG.set(this, EMPTY_FN);
         }
     }
     

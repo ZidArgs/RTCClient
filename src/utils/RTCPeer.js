@@ -6,9 +6,6 @@ const REMOTE = new WeakMap();
 const SIG_CH = new WeakMap();
 const MESSAGE_BUFFER = new WeakMap();
 
-const EMPTY_FN = function() {};
-const EVENT_FN = new WeakMap();
-
 let LOGGER = null;
 
 // TODO better error messages (include expected/current state)
@@ -32,66 +29,87 @@ export default class RTCPeer extends EventTarget {
         REMOTE.set(this, remote);
         const dataChannels = new Map();
         DATA_CHANNELS.set(this, dataChannels);
-        EVENT_FN.set(this, {
-            connected: EMPTY_FN,
-            closed: EMPTY_FN,
-            failed: EMPTY_FN,
-            stream: EMPTY_FN
-        });
         SIG_CH.set(this, sigCh);
         // create RTC interface
         const rtc = new RTCPeerConnection(config);
         RTC.set(this, rtc);
-        rtc.ontrack = function(event) {
-            this.throwEvent("stream", {
-                stream: event.streams[0]
-            });
-        };
-        rtc.onicecandidate = function(event) {
+        rtc.addEventListener("track", event => {
+            const ev = new Event("stream");
+            ev.localID = this.localID;
+            ev.remoteID = this.remoteID;
+            ev.stream = event.streams[0];
+            this.dispatchEvent(ev);
+        });
+        rtc.addEventListener("icecandidate", event => {
             sigCh.sendICE(remote, event.candidate);
-        };
-        rtc.oniceconnectionstatechange = function(event) {
+        });
+        rtc.addEventListener("iceconnectionstatechange", event => {
             if (LOGGER != null) {
                 LOGGER.info(`STATE - ${remote}: ${rtc.iceConnectionState}`);
             }
             console.info(`STATE - ${remote}: ${rtc.iceConnectionState}`);
             switch (rtc.iceConnectionState) {
                 case "failed":
-                    if (LOGGER != null) {
-                        LOGGER.error(`ERROR: connection to peer "${remote}" unexpectedly terrminated`);
+                    {
+                        if (LOGGER != null) {
+                            LOGGER.error(`ERROR: connection to peer "${remote}" unexpectedly terrminated`);
+                        }
+                        console.error(`ERROR: connection to peer "${remote}" unexpectedly terrminated`);
+                        rtc.close();
+                        this./*#*/__printStatus();
+                        /* event */
+                        const ev = new Event("failed");
+                        ev.localID = this.localID;
+                        ev.remoteID = this.remoteID;
+                        this.dispatchEvent(ev);
                     }
-                    console.error(`ERROR: connection to peer "${remote}" unexpectedly terrminated`);
-                    rtc.close();
-                    this.printStatus();
-                    this.throwEvent("failed");
                     break;
                 case "connected":
-                    this.printStatus();
-                    this.throwEvent("connected");
+                    {
+                        this./*#*/__printStatus();
+                        /* event */
+                        const ev = new Event("connected");
+                        ev.localID = this.localID;
+                        ev.remoteID = this.remoteID;
+                        this.dispatchEvent(ev);
+                    }
                     break;
                 case "disconnected":
-                    rtc.close();
-                    dataChannels.forEach(dch => {
-                        dch.close();
-                    });
-                    dataChannels.clear();
-                    this.printStatus();
-                    this.throwEvent("closed");
+                    {
+                        rtc.close();
+                        dataChannels.forEach(dch => {
+                            dch.close();
+                        });
+                        dataChannels.clear();
+                        this./*#*/__printStatus();
+                        /* event */
+                        const ev = new Event("closed");
+                        ev.localID = this.localID;
+                        ev.remoteID = this.remoteID;
+                        this.dispatchEvent(ev);
+                    }
                     break;
                 case "closed":
-                    dataChannels.forEach(dch => {
-                        dch.close();
-                    });
-                    dataChannels.clear();
-                    this.printStatus();
-                    this.throwEvent("closed");
+                    {
+                        dataChannels.forEach(dch => {
+                            dch.close();
+                        });
+                        dataChannels.clear();
+                        this./*#*/__printStatus();
+                        /* event */
+                        const ev = new Event("closed");
+                        ev.localID = this.localID;
+                        ev.remoteID = this.remoteID;
+                        this.dispatchEvent(ev);
+                    }
                     break;
             }
-        }.bind(this);
-        sigCh.onice = function(sender, candidate) {
+        });
+        sigCh.addEventListener("ice", event => {
+            const {sender, body} = event;
             if (sender == remote) {
-                if (candidate != null) {
-                    const ice = new RTCIceCandidate(candidate);
+                if (body != null) {
+                    const ice = new RTCIceCandidate(body);
                     console.info(`ICE - ${sender}:`, ice);
                     if (LOGGER != null) {
                         LOGGER.info(`ICE - ${sender}:`, `${ice.foundation}: ${ice.type}/${ice.protocol}`);
@@ -104,23 +122,25 @@ export default class RTCPeer extends EventTarget {
                     }
                 }
             }
-        }.bind(this);
-        sigCh.onanswer = function(sender, answer) {
+        });
+        sigCh.addEventListener("answer", event => {
+            const {sender, body} = event;
             if (LOGGER != null) {
                 LOGGER.info(`SDP [answer] - ${sender}: recieved`);
             }
-            console.info(`SDP [answer] - ${sender}:`, answer);
+            console.info(`SDP [answer] - ${sender}:`, body);
             if (sender == remote)  {
-                rtc.setRemoteDescription(answer);
+                rtc.setRemoteDescription(body);
             }
-        };
-        sigCh.onoffer = function(sender, offer) {
+        });
+        sigCh.addEventListener("offer", event => {
+            const {sender, body} = event;
             if (LOGGER != null) {
                 LOGGER.info(`SDP [offer] - ${sender}: recieved`);
             }
-            console.info(`SDP [offer] - ${sender}:`, offer);
+            console.info(`SDP [offer] - ${sender}:`, body);
             if (sender == remote)  {
-                rtc.setRemoteDescription(offer).then(function() {
+                rtc.setRemoteDescription(body).then(function() {
                     rtc.createAnswer().then(function(answer) {
                         rtc.setLocalDescription(answer).then(function() {
                             sigCh.sendSDP(remote, answer);
@@ -128,10 +148,10 @@ export default class RTCPeer extends EventTarget {
                     });
                 });
             }
-        }.bind(this);
+        });
     }
 
-    /*#*/printStatus() {
+    /*#*/__printStatus() {
         const rtc = RTC.get(this);
         const remote = REMOTE.get(this);
         rtc.getStats().then(stats => {
@@ -150,18 +170,6 @@ export default class RTCPeer extends EventTarget {
                 console.info(`RTC STATUS - ${remote}:`, report);
             });
         });
-    }
-
-    /*#*/throwEvent(type, data = {}) {
-        const eventFn = EVENT_FN.get(this);
-        const event = new Event(type);
-        for (const id in data) {
-            event[id] = data[id];
-        }
-        event.localID = this.localID;
-        event.remoteID = this.remoteID;
-        eventFn[type](event);
-        this.dispatchEvent(event);
     }
 
     get localID() {
@@ -250,42 +258,6 @@ export default class RTCPeer extends EventTarget {
             } else if (messageBuffer.has(name)) {
                 messageBuffer.get(name).add(msg);
             }
-        }
-    }
-
-    set onconnected(value) {
-        const eventFn = EVENT_FN.get(this);
-        if (typeof value == "function") {
-            eventFn.connected = value;
-        } else {
-            eventFn.connected = EMPTY_FN;
-        }
-    }
-
-    set onclosed(value) {
-        const eventFn = EVENT_FN.get(this);
-        if (typeof value == "function") {
-            eventFn.closed = value;
-        } else {
-            eventFn.closed = EMPTY_FN;
-        }
-    }
-
-    set onfailed(value) {
-        const eventFn = EVENT_FN.get(this);
-        if (typeof value == "function") {
-            eventFn.failed = value;
-        } else {
-            eventFn.failed = EMPTY_FN;
-        }
-    }
-
-    set onstream(value) {
-        const eventFn = EVENT_FN.get(this);
-        if (typeof value == "function") {
-            eventFn.stream = value;
-        } else {
-            eventFn.stream = EMPTY_FN;
         }
     }
 
