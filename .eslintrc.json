@@ -60,7 +60,11 @@
         ],
         "space-before-function-paren": [
             "error",
-            "never"
+            {
+                "anonymous": "never",
+                "named": "never",
+                "asyncArrow": "always"
+            }
         ],
         "space-before-blocks": [
             "error",
@@ -107,6 +111,13 @@
                 "classes": "always"
             }
         ],
-        "space-infix-ops": "error"
+        "space-infix-ops": "error",
+        "quotes": [
+            "error",
+            "double",
+            {
+                "allowTemplateLiterals": true
+            }
+        ]
     }
 }
