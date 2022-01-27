@@ -48,7 +48,7 @@ export default class Lobby {
                 id: client.id
             });
             return res;
-        } catch(e) {
+        } catch (e) {
             MASTER_NAME.delete(this);
             return {
                 success: false,
@@ -68,7 +68,7 @@ export default class Lobby {
                 MASTER_NAME.delete(this);
             }
             return res;
-        } catch(e) {
+        } catch (e) {
             return {
                 success: false,
                 error: e
@@ -84,7 +84,7 @@ export default class Lobby {
                 success: true,
                 data: res
             };
-        } catch(e) {
+        } catch (e) {
             return {
                 success: false,
                 error: e
@@ -102,7 +102,7 @@ export default class Lobby {
                 version
             });
             return res;
-        } catch(e) {
+        } catch (e) {
             return {
                 success: false,
                 reason: "connection problem",

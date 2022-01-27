@@ -58,7 +58,7 @@ export default class Signaling extends EventTarget {
     sendICE(reciever, data) {
         const client = CLIENT.get(this);
         client.send({
-            type: 'ice',
+            type: "ice",
             reciever: reciever,
             body: data
         });
@@ -67,7 +67,7 @@ export default class Signaling extends EventTarget {
     sendSDP(reciever, data) {
         const client = CLIENT.get(this);
         client.send({
-            type: 'sdp',
+            type: "sdp",
             reciever: reciever,
             body: data
         });

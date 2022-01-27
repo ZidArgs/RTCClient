@@ -9,7 +9,15 @@
     "url": "git+ssh://git@bitbucket.org/zidargs/rtcclient.git"
   },
   "homepage": "https://bitbucket.org/zidargs/rtcclient/src",
-  "exports": {
-    "./": "./src/"
+  "exports": "./src/",
+  "devDependencies": {
+    "@babel/core": "^7.16.10",
+    "@babel/eslint-parser": "^7.16.5",
+    "@babel/plugin-syntax-top-level-await": "^7.14.5",
+		"eslint": "^8.0.0"
+  },
+  "scripts": {
+    "lint": "yarn eslint ./src",
+    "lintfix": "yarn eslint --fix ./src"
   }
 }

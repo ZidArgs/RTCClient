@@ -172,7 +172,10 @@ class RTCClient extends EventTarget {
             this./*#*/__createPeer(sig, res.id).negotiate();
             return {success: true};
         } else {
-            return {success: false, error: res.error};
+            return {
+                success: false,
+                error: res.error
+            };
         }
     }
 
@@ -220,7 +223,9 @@ class RTCClient extends EventTarget {
 
     sendButOne(channel, id, msg) {
         Array.from(RTC_INST.get(this).values()).forEach(function(rtc) {
-            if (rtc.remoteID == id) return;
+            if (rtc.remoteID == id) {
+                return;
+            }
             rtc.send(channel, msg);
         });
     }

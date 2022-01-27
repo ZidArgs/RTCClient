@@ -220,7 +220,10 @@ export default class RTCPeer extends EventTarget {
             messageBuffer.set(name, new MessageBuffer());
             const rtc = RTC.get(this);
             const dataChannels = DATA_CHANNELS.get(this);
-            var dch = rtc.createDataChannel(name, {negotiated: true, id: id});
+            const dch = rtc.createDataChannel(name, {
+                negotiated: true,
+                id: id
+            });
             dch.onopen = function(event) {
                 dataChannels.set(name, dch);
                 messageBuffer.get(name).each(msg => dch.send(msg));

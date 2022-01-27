@@ -70,7 +70,7 @@ export default class WebSocketClient extends EventTarget {
                                 break;
                         }
                     });
-                } catch(e) {
+                } catch (e) {
                     reject(e);
                 }
             });
@@ -86,7 +86,7 @@ export default class WebSocketClient extends EventTarget {
                         resolve();
                     });
                     socket.close();
-                } catch(e) {
+                } catch (e) {
                     reject(e);
                 }
             } else {

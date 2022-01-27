@@ -15,25 +15,25 @@ async function sendRequest(url, query, config) {
             url.searchParams.append(query, "");
         }
     }
-    config.cache = 'no-cache';
+    config.cache = "no-cache";
     config.headers = config.headers ?? {};
-    config.headers['Content-Type'] = 'application/json; charset=utf-8';
-    config.headers['Cache-Control'] = 'no-cache';
+    config.headers["Content-Type"] = "application/json; charset=utf-8";
+    config.headers["Cache-Control"] = "no-cache";
     const response = await fetch(url, config);
     if (response.status < 200 || response.status >= 300) {
         throw new Error(`error on ${config.method} for url "${url}" - status: ${response.status} - ${response.statusText}`);
     }
     let data = null;
-    if (response.headers.get('content-type').indexOf('application/json') >= 0) {
+    if (response.headers.get("content-type").indexOf("application/json") >= 0) {
         try {
             data = await response.json();
-        } catch(err) {
+        } catch (err) {
             console.error(err);
         }
     } else {
         try {
             data = await response.text();
-        } catch(err) {
+        } catch (err) {
             console.error(err);
         }
     }
@@ -43,15 +43,13 @@ async function sendRequest(url, query, config) {
 class Rest {
 
     async get(url, query) {
-        return await sendRequest(url, query, {
-            method: 'GET'
-        });
+        return await sendRequest(url, query, {method: "GET"});
     }
 
     async post(url, data = {}, query = null) {
         if (typeof data == "object" && !Array.isArray(data)) {
             return await sendRequest(url, query, {
-                method: 'POST',
+                method: "POST",
                 body: JSON.stringify(data)
             });
         } else {
@@ -62,7 +60,7 @@ class Rest {
     async put(url, data = {}, query = null) {
         if (typeof data == "object" && !Array.isArray(data)) {
             return await sendRequest(url, query, {
-                method: 'PUT',
+                method: "PUT",
                 body: JSON.stringify(data)
             });
         } else {
@@ -71,9 +69,7 @@ class Rest {
     }
 
     async delete(url, query) {
-        return await sendRequest(url, query, {
-            method: 'DELETE'
-        });
+        return await sendRequest(url, query, {method: "DELETE"});
     }
 
 }
