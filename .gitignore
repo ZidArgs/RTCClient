@@ -1,5 +1,14 @@
 # Add any directories, files, or patterns you don't want to be tracked by version control
 node_modules
-yarn.lock
+dev
+prod
+out
+dist
 yarn-error.log
+yarn.lock
+*.zip
+*.exe
+.idea
 package-lock.json
+backup.json
+editor/info.log

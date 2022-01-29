@@ -1,5 +1,8 @@
+# Add any directories, files, or patterns you don't want to be linted
 node_modules
 dev
 prod
 out
 dist
+.idea
+.vscode
