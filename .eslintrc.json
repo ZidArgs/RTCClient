@@ -28,10 +28,7 @@
         "no-case-declarations": "error",
         "default-case-last": "error",
         "no-trailing-spaces": [
-            "error",
-            {
-                "skipBlankLines": true
-            }
+            "error"
         ],
         "eol-last": [
             "error",
@@ -83,7 +80,10 @@
             "error",
             "never"
         ],
-        "array-bracket-spacing": ["error", "never"],
+        "array-bracket-spacing": [
+            "error",
+            "never"
+        ],
         "computed-property-spacing": [
             "error",
             "never"
@@ -158,6 +158,60 @@
                 "enforceForArrowConditionals": false,
                 "enforceForSequenceExpressions": false,
                 "enforceForNewInMemberExpressions": false
+            }
+        ],
+        "no-fallthrough": "off",
+        "padding-line-between-statements": [
+            "error",
+            {
+                "blankLine": "always",
+                "prev": "import",
+                "next": "*"
+            },
+            {
+                "blankLine": "any",
+                "prev": "import",
+                "next": "import"
+            },
+            {
+                "blankLine": "always",
+                "prev": "export",
+                "next": "*"
+            },
+            {
+                "blankLine": "always",
+                "prev": "*",
+                "next": "export"
+            },
+            {
+                "blankLine": "always",
+                "prev": "class",
+                "next": "*"
+            },
+            {
+                "blankLine": "always",
+                "prev": "*",
+                "next": "class"
+            },
+            {
+                "blankLine": "always",
+                "prev": "function",
+                "next": "*"
+            },
+            {
+                "blankLine": "always",
+                "prev": "*",
+                "next": "function"
+            },
+            {
+                "blankLine": "always",
+                "prev": "iife",
+                "next": "*"
+            },
+            {
+                "blankLine": "always",
+                "prev": "*",
+                "next": "iife"
             }
         ]
     }

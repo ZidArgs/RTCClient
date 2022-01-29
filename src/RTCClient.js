@@ -135,7 +135,7 @@ class RTCClient extends EventTarget {
         console.info(`REGISTER ROOM: ${name}`);
         return await lobby.register(name, pass, desc, version, data);
     }
-    
+
     async unregister() {
         const lobby = LOBBY.get(this);
         if (LOGGER != null) {
@@ -144,7 +144,7 @@ class RTCClient extends EventTarget {
         console.info("UNREGISTER ROOM");
         return await lobby.unregister();
     }
-    
+
     async getInstances() {
         if (LOGGER != null) {
             LOGGER.info("REQUEST INSTANCE LIST");
@@ -153,7 +153,7 @@ class RTCClient extends EventTarget {
         const lobby = LOBBY.get(this);
         return await lobby.getInstances();
     }
-    
+
     async connect(name, pass = "", version = 0) {
         const url = SERVICE_URL.get(this);
         const lobby = LOBBY.get(this);
@@ -238,7 +238,7 @@ class RTCClient extends EventTarget {
             messageHandler.delete(channel);
         }
     }
-    
+
 }
 
 export default RTCClient;

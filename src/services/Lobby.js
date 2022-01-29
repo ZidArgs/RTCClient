@@ -56,7 +56,7 @@ export default class Lobby {
             };
         }
     }
-    
+
     async unregister() {
         const url = SERVICE_URL.get(this);
         try {
@@ -75,7 +75,7 @@ export default class Lobby {
             };
         }
     }
-    
+
     async getInstances() {
         const url = SERVICE_URL.get(this);
         try {
@@ -91,7 +91,7 @@ export default class Lobby {
             };
         }
     }
-    
+
     async getPeer(id, name, pass = "", version = 0) {
         const url = SERVICE_URL.get(this);
         try {
