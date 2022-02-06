@@ -1,8 +1,6 @@
-# Add any directories, files, or patterns you don't want to be linted
+# default lint exclusion
 node_modules
-dev
-prod
-out
-dist
 .idea
 .vscode
+
+# Add any directories, files, or patterns you don't want to be linted
