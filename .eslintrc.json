@@ -34,6 +34,14 @@
             "error",
             "always"
         ],
+        "no-multiple-empty-lines": [
+            "error",
+            {
+                "max": 1,
+                "maxEOF": 1,
+                "maxBOF": 1
+            }
+        ],
         "no-unneeded-ternary": "error",
         "brace-style": [
             "error",
