@@ -51,13 +51,13 @@ class RTCClient extends EventTarget {
             console.info(`REQUESTED CONNECTION\nremote: ${id}`);
             const sig = new Signaling(url);
             await sig.open();
-            this./*#*/__createPeer(sig, id);
+            this.#createPeer(sig, id);
             return sig.id;
         });
         LOBBY.set(this, lobby);
     }
 
-    /*#*/__createPeer(sig, id) {
+    #createPeer(sig, id) {
         const config = CONFIG.get(this);
         const channels = CHANNELS.get(this);
         const messageHandler = MESSAGE_HANDLER.get(this);
@@ -169,7 +169,7 @@ class RTCClient extends EventTarget {
                 LOGGER.info(`CONNECT TO: ${res.id}`);
             }
             console.info(`CONNECT TO: ${res.id}`);
-            this./*#*/__createPeer(sig, res.id).negotiate();
+            this.#createPeer(sig, res.id).negotiate();
             return {success: true};
         } else {
             return {

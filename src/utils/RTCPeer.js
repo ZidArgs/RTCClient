@@ -56,7 +56,7 @@ export default class RTCPeer extends EventTarget {
                         }
                         console.error(`ERROR: connection to peer "${remote}" unexpectedly terrminated`);
                         rtc.close();
-                        this./*#*/__printStatus();
+                        this.#printStatus();
                         /* event */
                         const ev = new Event("failed");
                         ev.localID = this.localID;
@@ -66,7 +66,7 @@ export default class RTCPeer extends EventTarget {
                     break;
                 case "connected":
                     {
-                        this./*#*/__printStatus();
+                        this.#printStatus();
                         /* event */
                         const ev = new Event("connected");
                         ev.localID = this.localID;
@@ -81,7 +81,7 @@ export default class RTCPeer extends EventTarget {
                             dch.close();
                         });
                         dataChannels.clear();
-                        this./*#*/__printStatus();
+                        this.#printStatus();
                         /* event */
                         const ev = new Event("closed");
                         ev.localID = this.localID;
@@ -95,7 +95,7 @@ export default class RTCPeer extends EventTarget {
                             dch.close();
                         });
                         dataChannels.clear();
-                        this./*#*/__printStatus();
+                        this.#printStatus();
                         /* event */
                         const ev = new Event("closed");
                         ev.localID = this.localID;
@@ -151,7 +151,7 @@ export default class RTCPeer extends EventTarget {
         });
     }
 
-    /*#*/__printStatus() {
+    #printStatus() {
         const rtc = RTC.get(this);
         const remote = REMOTE.get(this);
         rtc.getStats().then(stats => {

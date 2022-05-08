@@ -16,6 +16,7 @@
     },
     "rules": {
         "no-unused-expressions": "error",
+        "no-unused-private-class-members": "error",
         "no-var": "error",
         "indent": [
             "error",
