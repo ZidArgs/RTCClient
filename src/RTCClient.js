@@ -44,7 +44,7 @@ class RTCClient extends EventTarget {
         CHANNELS.set(this, channels);
         RTC_INST.set(this, new Map());
         // create lobby endpoint
-        const lobby = new Lobby(url, async id => {
+        const lobby = new Lobby(url, async (id) => {
             if (LOGGER != null) {
                 LOGGER.info(`REQUESTED CONNECTION\nremote: ${id}`);
             }
@@ -68,7 +68,7 @@ class RTCClient extends EventTarget {
         const rtc = new RTCPeer(sig, id, config);
         for (const chId in channels) {
             const channel_name = channels[chId];
-            rtc.openChannel(channel_name, chId + 1, function(channel, msg) {
+            rtc.openChannel(channel_name, chId + 1, (channel, msg) => {
                 if (LOGGER != null) {
                     LOGGER.info(`${rtc.remoteID} [${channel}]:`, msg);
                 }
@@ -76,7 +76,7 @@ class RTCClient extends EventTarget {
                 if (messageHandler.has(channel)) {
                     messageHandler.get(channel)(rtc.remoteID, msg);
                 }
-            }.bind(this)).then(function() {
+            }).then(function() {
                 if (LOGGER != null) {
                     LOGGER.info(`CHANNEL OPEN: ${channel_name} @ ${rtc.remoteID}`);
                 }
@@ -84,7 +84,7 @@ class RTCClient extends EventTarget {
             });
         }
         RTC_INST.get(this).set(id, rtc);
-        rtc.addEventListener("connected", function(event) {
+        rtc.addEventListener("connected", (event) => {
             sig.close();
             if (LOGGER != null) {
                 LOGGER.info(`CONNECTED: ${event.remoteID}`);
@@ -94,8 +94,8 @@ class RTCClient extends EventTarget {
             const ev = new Event("connected");
             ev.remoteID = event.remoteID;
             this.dispatchEvent(ev);
-        }.bind(this));
-        rtc.addEventListener("closed", function(event) {
+        });
+        rtc.addEventListener("closed", (event) => {
             RTC_INST.get(this).delete(event.remoteID);
             if (LOGGER != null) {
                 LOGGER.info(`DISCONNECTED: ${event.remoteID}`);
@@ -105,21 +105,21 @@ class RTCClient extends EventTarget {
             const ev = new Event("closed");
             ev.remoteID = event.remoteID;
             this.dispatchEvent(ev);
-        }.bind(this));
-        rtc.addEventListener("failed", function(event) {
+        });
+        rtc.addEventListener("failed", (event) => {
             RTC_INST.get(this).delete(event.remoteID);
             /* event */
             const ev = new Event("failed");
             ev.remoteID = event.remoteID;
             this.dispatchEvent(ev);
-        }.bind(this));
-        rtc.addEventListener("log", function(event) {
+        });
+        rtc.addEventListener("log", (event) => {
             /* event */
             const ev = new Event("log");
             ev.type = event.type;
             ev.message = event.message;
             this.dispatchEvent(ev);
-        }.bind(this));
+        });
         if (LOGGER != null) {
             LOGGER.info(`RTC MODULE INITIALIZED\nlocal:  ${sig.id}\nremote: ${rtc.remoteID}`);
         }

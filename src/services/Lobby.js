@@ -16,7 +16,7 @@ export default class Lobby {
         const ws_url = new URL(service_url);
         ws_url.protocol = ws_url.protocol.replace("http", "ws");
         const client = new WebSocketClient(ws_url);
-        client.addEventListener("message", async event => {
+        client.addEventListener("message", async (event) => {
             const answer = await onMessage(event.data.body);
             client.send({
                 requestID: event.data.requestID,

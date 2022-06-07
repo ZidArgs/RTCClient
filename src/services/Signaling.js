@@ -11,7 +11,7 @@ export default class Signaling extends EventTarget {
         SERVICE_URL.set(this, service_url);
         service_url.protocol = service_url.protocol.replace("http", "ws");
         const client = new WebSocketClient(service_url);
-        client.addEventListener("message", async event => {
+        client.addEventListener("message", async (event) => {
             const msg = event.data;
             switch (msg.type) {
                 case "sdp":

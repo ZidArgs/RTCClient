@@ -34,14 +34,14 @@ export default class WebSocketClient extends EventTarget {
             await new Promise((resolve, reject) => {
                 try {
                     const socket = new WebSocket(url);
-                    socket.addEventListener("open", (event) => {
+                    socket.addEventListener("open", () => {
                         const buffer = MESSAGE_BUFFER.get(this);
-                        buffer.each(msg => this.send(msg));
+                        buffer.each((msg) => this.send(msg));
                         SOCKET.set(this, socket);
                         clearTimeout(TIMEOUT.get(this));
                         TIMEOUT.set(this, setTimeout(()=>socket.close(), PING_OUT));
                     });
-                    socket.addEventListener("close", (event) => {
+                    socket.addEventListener("close", () => {
                         SOCKET.delete(this);
                         SOCKET_ID.delete(this);
                         clearTimeout(TIMEOUT.get(this));
@@ -82,7 +82,7 @@ export default class WebSocketClient extends EventTarget {
             const socket = SOCKET.get(this);
             if (!!socket && socket.readyState == WebSocket.OPEN) {
                 try {
-                    socket.addEventListener("close", (event) => {
+                    socket.addEventListener("close", () => {
                         resolve();
                     });
                     socket.close();

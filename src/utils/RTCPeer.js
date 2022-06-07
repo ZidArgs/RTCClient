@@ -33,17 +33,17 @@ export default class RTCPeer extends EventTarget {
         // create RTC interface
         const rtc = new RTCPeerConnection(config);
         RTC.set(this, rtc);
-        rtc.addEventListener("track", event => {
+        rtc.addEventListener("track", (event) => {
             const ev = new Event("stream");
             ev.localID = this.localID;
             ev.remoteID = this.remoteID;
             ev.stream = event.streams[0];
             this.dispatchEvent(ev);
         });
-        rtc.addEventListener("icecandidate", event => {
+        rtc.addEventListener("icecandidate", (event) => {
             sigCh.sendICE(remote, event.candidate);
         });
-        rtc.addEventListener("iceconnectionstatechange", event => {
+        rtc.addEventListener("iceconnectionstatechange", () => {
             if (LOGGER != null) {
                 LOGGER.info(`STATE - ${remote}: ${rtc.iceConnectionState}`);
             }
@@ -77,7 +77,7 @@ export default class RTCPeer extends EventTarget {
                 case "disconnected":
                     {
                         rtc.close();
-                        dataChannels.forEach(dch => {
+                        dataChannels.forEach((dch) => {
                             dch.close();
                         });
                         dataChannels.clear();
@@ -91,7 +91,7 @@ export default class RTCPeer extends EventTarget {
                     break;
                 case "closed":
                     {
-                        dataChannels.forEach(dch => {
+                        dataChannels.forEach((dch) => {
                             dch.close();
                         });
                         dataChannels.clear();
@@ -105,7 +105,7 @@ export default class RTCPeer extends EventTarget {
                     break;
             }
         });
-        sigCh.addEventListener("ice", event => {
+        sigCh.addEventListener("ice", (event) => {
             const {sender, body} = event;
             if (sender == remote) {
                 if (body != null) {
@@ -123,7 +123,7 @@ export default class RTCPeer extends EventTarget {
                 }
             }
         });
-        sigCh.addEventListener("answer", event => {
+        sigCh.addEventListener("answer", (event) => {
             const {sender, body} = event;
             if (LOGGER != null) {
                 LOGGER.info(`SDP [answer] - ${sender}: recieved`);
@@ -133,7 +133,7 @@ export default class RTCPeer extends EventTarget {
                 rtc.setRemoteDescription(body);
             }
         });
-        sigCh.addEventListener("offer", event => {
+        sigCh.addEventListener("offer", (event) => {
             const {sender, body} = event;
             if (LOGGER != null) {
                 LOGGER.info(`SDP [offer] - ${sender}: recieved`);
@@ -154,8 +154,8 @@ export default class RTCPeer extends EventTarget {
     #printStatus() {
         const rtc = RTC.get(this);
         const remote = REMOTE.get(this);
-        rtc.getStats().then(stats => {
-            stats.forEach(report => {
+        rtc.getStats().then((stats) => {
+            stats.forEach((report) => {
                 if (LOGGER != null) {
                     LOGGER.info(`RTC STATUS - ${remote}:`, {
                         type: report.type,
@@ -215,7 +215,7 @@ export default class RTCPeer extends EventTarget {
     }
 
     openChannel(name, id, callback) {
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve) => {
             const messageBuffer = MESSAGE_BUFFER.get(this);
             messageBuffer.set(name, new MessageBuffer());
             const rtc = RTC.get(this);
@@ -224,18 +224,18 @@ export default class RTCPeer extends EventTarget {
                 negotiated: true,
                 id: id
             });
-            dch.onopen = function(event) {
+            dch.onopen = () => {
                 dataChannels.set(name, dch);
-                messageBuffer.get(name).each(msg => dch.send(msg));
+                messageBuffer.get(name).each((msg) => dch.send(msg));
                 messageBuffer.delete(name);
                 resolve();
-            }.bind(this);
-            dch.onclose = function(event) {
+            };
+            dch.onclose = () => {
                 dataChannels.delete(name);
-            }.bind(this);
-            dch.onmessage = function(event) {
+            };
+            dch.onmessage = (event) => {
                 callback(name, JSON.parse(event.data));
-            }.bind(this);
+            };
         });
     }
 
