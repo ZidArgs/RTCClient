@@ -43,6 +43,16 @@ export default class RTCPeer extends EventTarget {
         rtc.addEventListener("icecandidate", (event) => {
             sigCh.sendICE(remote, event.candidate);
         });
+        rtc.addEventListener("icecandidateerror", (event) => {
+            if (event.errorCode >= 300 && event.errorCode <= 699) {
+                // https://www.webrtc-developers.com/oups-i-got-an-ice-error-701/
+                // Here this a standardized ICE error
+                // Do something...
+            } else if (event.errorCode >= 700 && event.errorCode <= 799) {
+                // Here, the application perhaps didn't reach the server ?
+                // Do something else...
+            }
+        });
         rtc.addEventListener("iceconnectionstatechange", () => {
             if (LOGGER != null) {
                 LOGGER.info(`STATE - ${remote}: ${rtc.iceConnectionState}`);
