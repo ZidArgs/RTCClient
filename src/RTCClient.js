@@ -210,7 +210,7 @@ class RTCClient extends EventTarget {
 
     send(channel, msg) {
         Array.from(RTC_INST.get(this).values()).forEach(function(rtc) {
-            rtc.send(channel, msg)
+            rtc.send(channel, msg);
         });
     }
 
