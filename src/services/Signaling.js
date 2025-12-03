@@ -55,20 +55,20 @@ export default class Signaling extends EventTarget {
         client.close();
     }
 
-    sendICE(reciever, data) {
+    sendICE(receiver, data) {
         const client = CLIENT.get(this);
         client.send({
             type: "ice",
-            reciever: reciever,
+            receiver: receiver,
             body: data
         });
     }
 
-    sendSDP(reciever, data) {
+    sendSDP(receiver, data) {
         const client = CLIENT.get(this);
         client.send({
             type: "sdp",
-            reciever: reciever,
+            receiver: receiver,
             body: data
         });
     }
