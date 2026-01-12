@@ -1,49 +1,51 @@
 import MessageBuffer from "./MessageBuffer.js";
 
-const RTC = new WeakMap();
-const DATA_CHANNELS = new WeakMap();
-const REMOTE = new WeakMap();
-const SIG_CH = new WeakMap();
-const MESSAGE_BUFFER = new WeakMap();
-
 let LOGGER = null;
 
 // TODO better error messages (include expected/current state)
 export default class RTCPeer extends EventTarget {
 
     static setLogger(value) {
-        if (value == null
-        || typeof value.log != "function"
-        || typeof value.info != "function"
-        || typeof value.warn != "function"
-        || typeof value.error != "function") {
+        if (
+            value == null ||
+            typeof value.log != "function" ||
+            typeof value.info != "function" ||
+            typeof value.warn != "function" ||
+            typeof value.error != "function"
+        ) {
             LOGGER = null;
         } else {
             LOGGER = value;
         }
     }
 
-    constructor(sigCh, remote, config = {}) {
+    #signalingChannel;
+
+    #remote;
+
+    #rtc;
+
+    #dataChannels = new Map();
+
+    #messageBuffer = new Map();
+
+    constructor(signalingChannel, remote, config = {}) {
         super();
-        MESSAGE_BUFFER.set(this, new Map());
-        REMOTE.set(this, remote);
-        const dataChannels = new Map();
-        DATA_CHANNELS.set(this, dataChannels);
-        SIG_CH.set(this, sigCh);
+        this.#signalingChannel = signalingChannel;
+        this.#remote = remote;
         // create RTC interface
-        const rtc = new RTCPeerConnection(config);
-        RTC.set(this, rtc);
-        rtc.addEventListener("track", (event) => {
+        this.#rtc = new RTCPeerConnection(config);
+        this.#rtc.addEventListener("track", (event) => {
             const ev = new Event("stream");
             ev.localID = this.localID;
             ev.remoteID = this.remoteID;
             ev.stream = event.streams[0];
             this.dispatchEvent(ev);
         });
-        rtc.addEventListener("icecandidate", (event) => {
-            sigCh.sendICE(remote, event.candidate);
+        this.#rtc.addEventListener("icecandidate", (event) => {
+            signalingChannel.sendICE(remote, event.candidate);
         });
-        rtc.addEventListener("icecandidateerror", (event) => {
+        this.#rtc.addEventListener("icecandidateerror", (event) => {
             if (event.errorCode >= 300 && event.errorCode <= 699) {
                 // https://www.webrtc-developers.com/oups-i-got-an-ice-error-701/
                 // Here this a standardized ICE error
@@ -53,19 +55,19 @@ export default class RTCPeer extends EventTarget {
                 // Do something else...
             }
         });
-        rtc.addEventListener("iceconnectionstatechange", () => {
+        this.#rtc.addEventListener("iceconnectionstatechange", () => {
             if (LOGGER != null) {
-                LOGGER.info(`STATE - ${remote}: ${rtc.iceConnectionState}`);
+                LOGGER.info(`STATE - ${remote}: ${this.#rtc.iceConnectionState}`);
             }
-            console.info(`STATE - ${remote}: ${rtc.iceConnectionState}`);
-            switch (rtc.iceConnectionState) {
+            console.info(`STATE - ${remote}: ${this.#rtc.iceConnectionState}`);
+            switch (this.#rtc.iceConnectionState) {
                 case "failed":
                     {
                         if (LOGGER != null) {
                             LOGGER.error(`ERROR: connection to peer "${remote}" unexpectedly terrminated`);
                         }
                         console.error(`ERROR: connection to peer "${remote}" unexpectedly terrminated`);
-                        rtc.close();
+                        this.#rtc.close();
                         this.#printStatus();
                         /* event */
                         const ev = new Event("failed");
@@ -86,11 +88,11 @@ export default class RTCPeer extends EventTarget {
                     break;
                 case "disconnected":
                     {
-                        rtc.close();
-                        dataChannels.forEach((dch) => {
+                        this.#rtc.close();
+                        this.#dataChannels.forEach((dch) => {
                             dch.close();
                         });
-                        dataChannels.clear();
+                        this.#dataChannels.clear();
                         this.#printStatus();
                         /* event */
                         const ev = new Event("closed");
@@ -101,10 +103,10 @@ export default class RTCPeer extends EventTarget {
                     break;
                 case "closed":
                     {
-                        dataChannels.forEach((dch) => {
+                        this.#dataChannels.forEach((dch) => {
                             dch.close();
                         });
-                        dataChannels.clear();
+                        this.#dataChannels.clear();
                         this.#printStatus();
                         /* event */
                         const ev = new Event("closed");
@@ -115,8 +117,10 @@ export default class RTCPeer extends EventTarget {
                     break;
             }
         });
-        sigCh.addEventListener("ice", (event) => {
-            const {sender, body} = event;
+        signalingChannel.addEventListener("ice", (event) => {
+            const {
+                sender, body
+            } = event;
             if (sender == remote) {
                 if (body != null) {
                     const ice = new RTCIceCandidate(body);
@@ -124,7 +128,7 @@ export default class RTCPeer extends EventTarget {
                     if (LOGGER != null) {
                         LOGGER.info(`ICE - ${sender}:`, `${ice.foundation}: ${ice.type}/${ice.protocol}`);
                     }
-                    rtc.addIceCandidate(ice);
+                    this.#rtc.addIceCandidate(ice);
                 } else {
                     console.info(`ICE - ${sender}:`, null);
                     if (LOGGER != null) {
@@ -133,27 +137,31 @@ export default class RTCPeer extends EventTarget {
                 }
             }
         });
-        sigCh.addEventListener("answer", (event) => {
-            const {sender, body} = event;
+        signalingChannel.addEventListener("answer", (event) => {
+            const {
+                sender, body
+            } = event;
             if (LOGGER != null) {
                 LOGGER.info(`SDP [answer] - ${sender}: recieved`);
             }
             console.info(`SDP [answer] - ${sender}:`, body);
             if (sender == remote)  {
-                rtc.setRemoteDescription(body);
+                this.#rtc.setRemoteDescription(body);
             }
         });
-        sigCh.addEventListener("offer", (event) => {
-            const {sender, body} = event;
+        signalingChannel.addEventListener("offer", (event) => {
+            const {
+                sender, body
+            } = event;
             if (LOGGER != null) {
                 LOGGER.info(`SDP [offer] - ${sender}: recieved`);
             }
             console.info(`SDP [offer] - ${sender}:`, body);
             if (sender == remote)  {
-                rtc.setRemoteDescription(body).then(function() {
-                    rtc.createAnswer().then(function(answer) {
-                        rtc.setLocalDescription(answer).then(function() {
-                            sigCh.sendSDP(remote, answer);
+                this.#rtc.setRemoteDescription(body).then(() => {
+                    this.#rtc.createAnswer().then((answer) => {
+                        this.#rtc.setLocalDescription(answer).then(() => {
+                            signalingChannel.sendSDP(remote, answer);
                         });
                     });
                 });
@@ -162,12 +170,10 @@ export default class RTCPeer extends EventTarget {
     }
 
     #printStatus() {
-        const rtc = RTC.get(this);
-        const remote = REMOTE.get(this);
-        rtc.getStats().then((stats) => {
+        this.#rtc.getStats().then((stats) => {
             stats.forEach((report) => {
                 if (LOGGER != null) {
-                    LOGGER.info(`RTC STATUS - ${remote}:`, {
+                    LOGGER.info(`RTC STATUS - ${this.#remote}:`, {
                         type: report.type,
                         state: report.state,
                         label: report.label,
@@ -177,48 +183,43 @@ export default class RTCPeer extends EventTarget {
                         candidateType: report.candidateType
                     });
                 }
-                console.info(`RTC STATUS - ${remote}:`, report);
+                console.info(`RTC STATUS - ${this.#remote}:`, report);
             });
         });
     }
 
     get localID() {
-        const sigCh = SIG_CH.get(this);
-        return sigCh.UUID;
+        return this.#signalingChannel.UUID;
     }
 
     get remoteID() {
-        return REMOTE.get(this);
+        return this.#remote;
     }
 
     getStats() {
-        const rtc = RTC.get(this);
-        return rtc.getStats();
+        return this.#rtc.getStats();
     }
 
     negotiate() {
-        const rtc = RTC.get(this);
-        if (rtc.iceConnectionState != "new") {
+        if (this.#rtc.iceConnectionState != "new") {
             throw new Error("RTC connecting or already connected");
         } else {
-            const sigCh = SIG_CH.get(this);
-            const remote = REMOTE.get(this);
-            rtc.createOffer().then(function(offer) {
-                rtc.setLocalDescription(offer).then(function() {
-                    sigCh.sendSDP(remote, offer);
+            this.#rtc.createOffer().then((offer) => {
+                this.#rtc.setLocalDescription(offer).then(() => {
+                    this.#signalingChannel.sendSDP(this.#remote, offer);
                 });
             });
         }
     }
 
     close() {
-        const rtc = RTC.get(this);
-        if (rtc.iceConnectionState == "new"
-        ||  rtc.iceConnectionState == "connected"
-        ||  rtc.iceConnectionState == "completed"
-        ||  rtc.iceConnectionState == "failed") {
-            const rtc = RTC.get(this);
-            rtc.close();
+        if (
+            this.#rtc.iceConnectionState == "new" ||
+            this.#rtc.iceConnectionState == "connected" ||
+            this.#rtc.iceConnectionState == "completed" ||
+            this.#rtc.iceConnectionState == "failed"
+        ) {
+            this.#rtc.close();
         } else {
             throw new Error("RTC not connected");
         }
@@ -226,22 +227,19 @@ export default class RTCPeer extends EventTarget {
 
     openChannel(name, id, callback) {
         return new Promise((resolve) => {
-            const messageBuffer = MESSAGE_BUFFER.get(this);
-            messageBuffer.set(name, new MessageBuffer());
-            const rtc = RTC.get(this);
-            const dataChannels = DATA_CHANNELS.get(this);
-            const dch = rtc.createDataChannel(name, {
+            this.#messageBuffer.set(name, new MessageBuffer());
+            const dch = this.#rtc.createDataChannel(name, {
                 negotiated: true,
                 id: id
             });
             dch.onopen = () => {
-                dataChannels.set(name, dch);
-                messageBuffer.get(name).each((msg) => dch.send(msg));
-                messageBuffer.delete(name);
+                this.#dataChannels.set(name, dch);
+                this.#messageBuffer.get(name).each((msg) => dch.send(msg));
+                this.#messageBuffer.delete(name);
                 resolve();
             };
             dch.onclose = () => {
-                dataChannels.delete(name);
+                this.#dataChannels.delete(name);
             };
             dch.onmessage = (event) => {
                 callback(name, JSON.parse(event.data));
@@ -251,9 +249,8 @@ export default class RTCPeer extends EventTarget {
 
     addStream(stream) {
         if (stream instanceof MediaStream) {
-            const rtc = RTC.get(this);
-            stream.getTracks().forEach(function(track) {
-                rtc.addTrack(track, stream);
+            stream.getTracks().forEach((track) => {
+                this.#rtc.addTrack(track, stream);
             });
         } else {
             throw new TypeError("MediaStream expected");
@@ -261,15 +258,13 @@ export default class RTCPeer extends EventTarget {
     }
 
     send(name, msg) {
-        const messageBuffer = MESSAGE_BUFFER.get(this);
-        const dataChannels = DATA_CHANNELS.get(this);
-        if (dataChannels.has(name)) {
+        if (this.#dataChannels.has(name)) {
             msg = JSON.stringify(msg);
-            const dch = dataChannels.get(name);
+            const dch = this.#dataChannels.get(name);
             if (dch.readyState == "open") {
                 dch.send(msg);
-            } else if (messageBuffer.has(name)) {
-                messageBuffer.get(name).add(msg);
+            } else if (this.#messageBuffer.has(name)) {
+                this.#messageBuffer.get(name).add(msg);
             }
         }
     }

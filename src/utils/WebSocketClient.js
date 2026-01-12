@@ -1,75 +1,89 @@
+import EventTargetManager from "./EventTargetManager.js";
 import MessageBuffer from "./MessageBuffer.js";
 
 // WebSocket
 
-const SERVICE_URL = new WeakMap();
-const SOCKET = new WeakMap();
-const MESSAGE_BUFFER = new WeakMap();
-const SOCKET_ID = new WeakMap();
-const TIMEOUT = new WeakMap();
 const PING_OUT = 30000;
 
 export default class WebSocketClient extends EventTarget {
 
+    #wsUrl;
+
+    #socket;
+
+    #socketId;
+
+    #timeout;
+
+    #messageBuffer = new MessageBuffer();
+
+    #websocketEventManager = new EventTargetManager();
+
     constructor(url) {
         super();
-        const ws_url = new URL(url);
-        ws_url.protocol = ws_url.protocol.replace("http", "ws");
-        SERVICE_URL.set(this, ws_url);
-        MESSAGE_BUFFER.set(this, new MessageBuffer());
+        this.#wsUrl = new URL(url);
+        this.#wsUrl.protocol = this.#wsUrl.protocol.replace("http", "ws");
+        /* --- */
+        this.#websocketEventManager.set("open", () => {
+            this.#messageBuffer.each((msg) => {
+                this.send(msg);
+            });
+            clearTimeout(this.#timeout);
+            this.#timeout = setTimeout(() => {
+                this.#socket.close();
+            }, PING_OUT);
+        });
+        this.#websocketEventManager.set("close", () => {
+            this.#socket = null;
+            this.#socketId = null;
+            clearTimeout(this.#timeout);
+            this.#timeout = null;
+        });
+        this.#websocketEventManager.set("message", (event) => {
+            const msg = JSON.parse(event.data);
+            switch (msg.type) {
+                case "ping":
+                    clearTimeout(this.#timeout);
+                    this.#timeout = setTimeout(() => {
+                        this.#socket.close();
+                    }, PING_OUT);
+                    msg.type = "pong";
+                    this.#socket.send(JSON.stringify(msg));
+                    break;
+                case "data":
+                    {
+                        const ev = new Event("message");
+                        ev.data = msg.data;
+                        this.dispatchEvent(ev);
+                    }
+                    break;
+            }
+        });
     }
 
     get id() {
-        return SOCKET_ID.get(this);
+        return this.#socketId;
     }
 
     isOpen() {
-        const socket = SOCKET.get(this);
-        return !!socket && socket.readyState == WebSocket.OPEN;
+        return !!this.#socket && this.#socket.readyState == WebSocket.OPEN;
     }
 
     async open() {
-        const url = SERVICE_URL.get(this);
-        if (!SOCKET.has(this)) {
+        if (this.#socket == null) {
             await new Promise((resolve, reject) => {
                 try {
-                    const socket = new WebSocket(url);
-                    socket.addEventListener("open", () => {
-                        const buffer = MESSAGE_BUFFER.get(this);
-                        buffer.each((msg) => this.send(msg));
-                        SOCKET.set(this, socket);
-                        clearTimeout(TIMEOUT.get(this));
-                        TIMEOUT.set(this, setTimeout(()=>socket.close(), PING_OUT));
-                    });
-                    socket.addEventListener("close", () => {
-                        SOCKET.delete(this);
-                        SOCKET_ID.delete(this);
-                        clearTimeout(TIMEOUT.get(this));
-                        TIMEOUT.delete(this);
-                    });
-                    socket.addEventListener("message", (event) => {
-                        const socket = SOCKET.get(this);
+                    this.#socket = new WebSocket(this.#wsUrl);
+                    this.#websocketEventManager.switchTarget(this.#socket);
+                    const registerFn = (event) => {
                         const msg = JSON.parse(event.data);
-                        switch (msg.type) {
-                            case "ping":
-                                clearTimeout(TIMEOUT.get(this));
-                                TIMEOUT.set(this, setTimeout(()=>socket.close(), PING_OUT));
-                                msg.type = "pong";
-                                socket.send(JSON.stringify(msg));
-                                break;
-                            case "uuid":
-                                SOCKET_ID.set(this, msg.data);
-                                resolve();
-                                break;
-                            case "data":
-                                {
-                                    const ev = new Event("message");
-                                    ev.data = msg.data;
-                                    this.dispatchEvent(ev);
-                                }
-                                break;
+                        if (msg.type === "uuid") {
+                            this.#socketId = msg.data;
+                            this.#socket.removeEventListener("message", registerFn);
+                            resolve();
                         }
-                    });
+                    };
+                    this.#socket.addEventListener("message", registerFn);
                 } catch (e) {
                     reject(e);
                 }
@@ -79,13 +93,14 @@ export default class WebSocketClient extends EventTarget {
 
     close() {
         return new Promise((resolve, reject) => {
-            const socket = SOCKET.get(this);
-            if (!!socket && socket.readyState == WebSocket.OPEN) {
+            if (!!this.#socket && this.#socket.readyState == WebSocket.OPEN) {
                 try {
-                    socket.addEventListener("close", () => {
+                    const closeFn = () => {
+                        this.#socket.removeEventListener("close", closeFn);
                         resolve();
-                    });
-                    socket.close();
+                    };
+                    this.#socket.addEventListener("close", closeFn);
+                    this.#socket.close();
                 } catch (e) {
                     reject(e);
                 }
@@ -103,12 +118,10 @@ export default class WebSocketClient extends EventTarget {
             type: "data",
             data: data
         });
-        const socket = SOCKET.get(this);
-        if (!!socket && socket.readyState == WebSocket.OPEN) {
-            socket.send(msg);
+        if (!!this.#socket && this.#socket.readyState == WebSocket.OPEN) {
+            this.#socket.send(msg);
         } else {
-            const buffer = MESSAGE_BUFFER.get(this);
-            buffer.add(msg);
+            this.#messageBuffer.add(msg);
         }
     }
 

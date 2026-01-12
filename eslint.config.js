@@ -17,6 +17,13 @@ const compat = new FlatCompat({
     allConfig: js.configs.all
 });
 
+// fix globals
+const browserGlobals = {
+    ...globals.browser,
+    AudioWorkletGlobalScope: false // this is the default,
+};
+delete browserGlobals["AudioWorkletGlobalScope "];
+
 export default defineConfig([
     globalIgnores(["**/node_modules", "**/.idea", "**/.vscode"]),
     {
@@ -24,7 +31,7 @@ export default defineConfig([
 
         languageOptions: {
             globals: {
-                ...globals.browser,
+                ...browserGlobals,
                 ...globals.node,
                 WeakRef: false,
                 Iterator: false,

@@ -1,17 +1,21 @@
+import EventTargetManager from "../utils/EventTargetManager.js";
 import WebSocketClient from "../utils/WebSocketClient.js";
-
-const SERVICE_URL = new WeakMap();
-const CLIENT = new WeakMap();
 
 export default class Signaling extends EventTarget {
 
+    #wsUrl;
+
+    #client;
+
+    #websocketEventManager = new EventTargetManager();
+
     constructor(url) {
         super();
-        const service_url = new URL("/signaling", url);
-        SERVICE_URL.set(this, service_url);
-        service_url.protocol = service_url.protocol.replace("http", "ws");
-        const client = new WebSocketClient(service_url);
-        client.addEventListener("message", async (event) => {
+        this.#wsUrl = new URL("/signaling", url);
+        this.#wsUrl.protocol = this.#wsUrl.protocol.replace("http", "ws");
+        this.#client = new WebSocketClient(this.#wsUrl);
+        this.#websocketEventManager.switchTarget(this.#client);
+        this.#websocketEventManager.set("message", async (event) => {
             const msg = event.data;
             switch (msg.type) {
                 case "sdp":
@@ -37,27 +41,23 @@ export default class Signaling extends EventTarget {
                     break;
             }
         });
-        CLIENT.set(this, client);
     }
 
     get id() {
-        const client = CLIENT.get(this);
-        return client.id;
+        return this.#client.id;
     }
 
     async open() {
-        const client = CLIENT.get(this);
-        await client.open();
+        await this.#client.open();
     }
 
     close() {
-        const client = CLIENT.get(this);
-        client.close();
+        this.#client.close();
+        this.#websocketEventManager.switchTarget(null);
     }
 
     sendICE(receiver, data) {
-        const client = CLIENT.get(this);
-        client.send({
+        this.#client.send({
             type: "ice",
             receiver: receiver,
             body: data
@@ -65,8 +65,7 @@ export default class Signaling extends EventTarget {
     }
 
     sendSDP(receiver, data) {
-        const client = CLIENT.get(this);
-        client.send({
+        this.#client.send({
             type: "sdp",
             receiver: receiver,
             body: data

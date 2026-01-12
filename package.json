@@ -1,6 +1,6 @@
 {
   "name": "rtcclient",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "simple signaling & lobby service",
   "author": "Denis Weiß (ZidArgs)",
   "license": "MIT",
@@ -13,10 +13,11 @@
     "./*": "./src/*"
   },
   "devDependencies": {
-    "@babel/core": "^7.28.4",
-    "@babel/eslint-parser": "^7.28.4",
+    "@babel/core": "^7.28.6",
+    "@babel/eslint-parser": "^7.28.6",
     "@babel/plugin-syntax-top-level-await": "^7.14.5",
-    "eslint": "^9.35.0"
+    "@stylistic/eslint-plugin": "^5.7.0",
+    "eslint": "^9.39.2"
   },
   "scripts": {
     "lint": "yarn eslint .",

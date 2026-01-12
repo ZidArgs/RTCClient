@@ -1,55 +1,69 @@
+import EventTargetManager from "../utils/EventTargetManager.js";
 import Rest from "../utils/Rest.js";
 import WebSocketClient from "../utils/WebSocketClient.js";
 
-const SERVICE_URL = new WeakMap();
-const CLIENT = new WeakMap();
-const MASTER_KEY = new WeakMap();
-const MASTER_NAME = new WeakMap();
-
 export default class Lobby {
 
+    #serviceUrl;
+
+    #wsUrl;
+
+    #client;
+
+    #masterName;
+
+    #masterKey = btoa(crypto.getRandomValues(new Uint8Array(16)).join(""));
+
+    #onMessage;
+
+    #websocketEventManager = new EventTargetManager();
+
     constructor(url, onMessage) {
-        const service_url = new URL("/lobby", url);
-        SERVICE_URL.set(this, service_url);
-        MASTER_KEY.set(this, btoa(crypto.getRandomValues(new Uint8Array(16)).join("")));
+        if (typeof onMessage !== "function") {
+            throw new TypeError("onMessage needs to be a function");
+        }
+        this.#serviceUrl = new URL("/lobby", url);
         // create websocket
-        const ws_url = new URL(service_url);
-        ws_url.protocol = ws_url.protocol.replace("http", "ws");
-        const client = new WebSocketClient(ws_url);
-        client.addEventListener("message", async (event) => {
-            const answer = await onMessage(event.data.body);
-            client.send({
+        this.#wsUrl = new URL(this.#serviceUrl);
+        this.#wsUrl.protocol = this.#wsUrl.protocol.replace("http", "ws");
+        this.#websocketEventManager.set("message", async (event) => {
+            const answer = await this.#onMessage(event.data.body);
+            this.#client.send({
                 requestID: event.data.requestID,
                 body: answer
             });
         });
-        CLIENT.set(this, client);
     }
 
     async register(name, pass = "", desc = "", version = 0, data = {}) {
-        if (MASTER_NAME.has(this)) {
+        if (typeof name !== "string" || name === "") {
+            throw new TypeError("name needs to be a non empty string");
+        }
+        if (this.#masterName != null) {
             return {
                 success: false,
                 error: "you already registered an instance"
             };
         }
-        const url = SERVICE_URL.get(this);
-        const client = CLIENT.get(this);
-        await client.open();
-        MASTER_NAME.set(this, name);
+        await this.#client.open();
+        this.#masterName = name;
         try {
-            const res = await Rest.post(`${url}/register`, {
+            const res = await Rest.post(`${this.#serviceUrl}/register`, {
                 name,
                 pass,
                 desc,
                 version,
                 data,
-                key: MASTER_KEY.get(this),
-                id: client.id
+                key: this.#masterKey,
+                id: this.#client.id
             });
+
+            this.#client = new WebSocketClient(this.#wsUrl);
+            this.#websocketEventManager.switchTarget(this.#client);
+
             return res;
         } catch (e) {
-            MASTER_NAME.delete(this);
+            this.#masterName = null;
             return {
                 success: false,
                 error: e
@@ -58,15 +72,19 @@ export default class Lobby {
     }
 
     async unregister() {
-        const url = SERVICE_URL.get(this);
         try {
-            const res = await Rest.post(`${url}/remove`, {
-                name: MASTER_NAME.get(this),
-                key: MASTER_KEY.get(this)
+            const res = await Rest.post(`${this.#serviceUrl}/remove`, {
+                name: this.#masterName,
+                key: this.#masterKey
             });
             if (res.success) {
-                MASTER_NAME.delete(this);
+                this.#masterName = null;
             }
+
+            this.#client.close();
+            this.#client = null;
+            this.#websocketEventManager.switchTarget(null);
+
             return res;
         } catch (e) {
             return {
@@ -77,9 +95,8 @@ export default class Lobby {
     }
 
     async getInstances() {
-        const url = SERVICE_URL.get(this);
         try {
-            const res = await Rest.get(url);
+            const res = await Rest.get(this.#serviceUrl);
             return {
                 success: true,
                 data: res
@@ -93,9 +110,8 @@ export default class Lobby {
     }
 
     async getPeer(id, name, pass = "", version = 0) {
-        const url = SERVICE_URL.get(this);
         try {
-            const res = await Rest.post(`${url}/get`, {
+            const res = await Rest.post(`${this.#serviceUrl}/get`, {
                 name,
                 id,
                 pass,
