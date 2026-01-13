@@ -1,7 +1,8 @@
-import EventTargetManager from "../utils/EventTargetManager.js";
-import WebSocketClient from "../utils/WebSocketClient.js";
 
-export default class Signaling extends EventTarget {
+import WebSocketClient from "../client/WebSocketClient.js";
+import EventTargetManager from "../utils/event/EventTargetManager.js";
+
+export default class RTCSignalingService extends EventTarget {
 
     #wsUrl;
 

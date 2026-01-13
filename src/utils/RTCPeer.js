@@ -1,3 +1,4 @@
+import EventTargetManager from "./event/EventTargetManager.js";
 import MessageBuffer from "./MessageBuffer.js";
 
 let LOGGER = null;
@@ -29,23 +30,29 @@ export default class RTCPeer extends EventTarget {
 
     #messageBuffer = new Map();
 
+    #rtcEventManager = new EventTargetManager();
+
+    #signalingEventManager = new EventTargetManager();
+
     constructor(signalingChannel, remote, config = {}) {
         super();
         this.#signalingChannel = signalingChannel;
+        this.#signalingEventManager.switchTarget(signalingChannel);
         this.#remote = remote;
         // create RTC interface
         this.#rtc = new RTCPeerConnection(config);
-        this.#rtc.addEventListener("track", (event) => {
+        this.#rtcEventManager.switchTarget(this.#rtc);
+        this.#rtcEventManager.set("track", (event) => {
             const ev = new Event("stream");
             ev.localID = this.localID;
             ev.remoteID = this.remoteID;
             ev.stream = event.streams[0];
             this.dispatchEvent(ev);
         });
-        this.#rtc.addEventListener("icecandidate", (event) => {
+        this.#rtcEventManager.set("icecandidate", (event) => {
             signalingChannel.sendICE(remote, event.candidate);
         });
-        this.#rtc.addEventListener("icecandidateerror", (event) => {
+        this.#rtcEventManager.set("icecandidateerror", (event) => {
             if (event.errorCode >= 300 && event.errorCode <= 699) {
                 // https://www.webrtc-developers.com/oups-i-got-an-ice-error-701/
                 // Here this a standardized ICE error
@@ -55,7 +62,7 @@ export default class RTCPeer extends EventTarget {
                 // Do something else...
             }
         });
-        this.#rtc.addEventListener("iceconnectionstatechange", () => {
+        this.#rtcEventManager.set("iceconnectionstatechange", () => {
             if (LOGGER != null) {
                 LOGGER.info(`STATE - ${remote}: ${this.#rtc.iceConnectionState}`);
             }
@@ -78,6 +85,7 @@ export default class RTCPeer extends EventTarget {
                     break;
                 case "connected":
                     {
+                        this.#signalingEventManager.switchTarget(null);
                         this.#printStatus();
                         /* event */
                         const ev = new Event("connected");
@@ -89,10 +97,7 @@ export default class RTCPeer extends EventTarget {
                 case "disconnected":
                     {
                         this.#rtc.close();
-                        this.#dataChannels.forEach((dch) => {
-                            dch.close();
-                        });
-                        this.#dataChannels.clear();
+                        this.#cleanup();
                         this.#printStatus();
                         /* event */
                         const ev = new Event("closed");
@@ -103,10 +108,7 @@ export default class RTCPeer extends EventTarget {
                     break;
                 case "closed":
                     {
-                        this.#dataChannels.forEach((dch) => {
-                            dch.close();
-                        });
-                        this.#dataChannels.clear();
+                        this.#cleanup();
                         this.#printStatus();
                         /* event */
                         const ev = new Event("closed");
@@ -117,11 +119,11 @@ export default class RTCPeer extends EventTarget {
                     break;
             }
         });
-        signalingChannel.addEventListener("ice", (event) => {
+        this.#signalingEventManager.set("ice", (event) => {
             const {
                 sender, body
             } = event;
-            if (sender == remote) {
+            if (sender === remote) {
                 if (body != null) {
                     const ice = new RTCIceCandidate(body);
                     console.info(`ICE - ${sender}:`, ice);
@@ -137,27 +139,29 @@ export default class RTCPeer extends EventTarget {
                 }
             }
         });
-        signalingChannel.addEventListener("answer", (event) => {
+        this.#signalingEventManager.set("answer", (event) => {
             const {
                 sender, body
             } = event;
-            if (LOGGER != null) {
-                LOGGER.info(`SDP [answer] - ${sender}: recieved`);
-            }
-            console.info(`SDP [answer] - ${sender}:`, body);
-            if (sender == remote)  {
-                this.#rtc.setRemoteDescription(body);
+            if (sender === remote) {
+                if (LOGGER != null) {
+                    LOGGER.info(`SDP [answer] - ${sender}: recieved`);
+                }
+                console.info(`SDP [answer] - ${sender}:`, body);
+                if (sender == remote)  {
+                    this.#rtc.setRemoteDescription(body);
+                }
             }
         });
-        signalingChannel.addEventListener("offer", (event) => {
+        this.#signalingEventManager.set("offer", (event) => {
             const {
                 sender, body
             } = event;
-            if (LOGGER != null) {
-                LOGGER.info(`SDP [offer] - ${sender}: recieved`);
-            }
-            console.info(`SDP [offer] - ${sender}:`, body);
             if (sender == remote)  {
+                if (LOGGER != null) {
+                    LOGGER.info(`SDP [offer] - ${sender}: recieved`);
+                }
+                console.info(`SDP [offer] - ${sender}:`, body);
                 this.#rtc.setRemoteDescription(body).then(() => {
                     this.#rtc.createAnswer().then((answer) => {
                         this.#rtc.setLocalDescription(answer).then(() => {
@@ -263,10 +267,22 @@ export default class RTCPeer extends EventTarget {
             const dch = this.#dataChannels.get(name);
             if (dch.readyState == "open") {
                 dch.send(msg);
+                return true;
             } else if (this.#messageBuffer.has(name)) {
                 this.#messageBuffer.get(name).add(msg);
+                return true;
             }
         }
+        return false;
+    }
+
+    #cleanup() {
+        this.#dataChannels.forEach((dch) => {
+            dch.close();
+        });
+        this.#dataChannels.clear();
+        this.#rtcEventManager.switchTarget(null);
+        this.#signalingEventManager.switchTarget(null);
     }
 
 }

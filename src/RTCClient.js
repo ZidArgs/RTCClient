@@ -1,5 +1,5 @@
-import Lobby from "./services/Lobby.js";
-import Signaling from "./services/Signaling.js";
+import RTCConnectorService from "./services/RTCConnectorService.js";
+import RTCSignalingService from "./services/RTCSignalingService.js";
 import RTCPeer from "./utils/RTCPeer.js";
 
 function getPort(value, def) {
@@ -32,7 +32,7 @@ class RTCClient extends EventTarget {
     // Private instance fields replacing former WeakMap storage
     #serviceUrl;
 
-    #lobby;
+    #connector;
 
     #config;
 
@@ -42,33 +42,46 @@ class RTCClient extends EventTarget {
 
     #messageHandler = new Map();
 
-    constructor(port, config = {}, channels = []) {
+    constructor(port, serviceEndpoint, config = {}, channels = []) {
+        if (typeof serviceEndpoint !== "string" || serviceEndpoint === "") {
+            throw new TypeError("serviceEndpoint needs to be a non empty string");
+        }
         super();
-        const url = new URL(location);
-        url.port = getPort(port, url.port);
-        this.#serviceUrl = url;
+        this.#serviceUrl = new URL(location);
+        this.#serviceUrl.port = getPort(port, this.#serviceUrl.port);
         this.#config = config;
         this.#channels = channels;
-        // create lobby endpoint
-        const lobby = new Lobby(url, async (id) => {
-            if (LOGGER != null) {
-                LOGGER.info(`REQUESTED CONNECTION\nremote: ${id}`);
-            }
-            console.info(`REQUESTED CONNECTION\nremote: ${id}`);
-            const sig = new Signaling(url);
-            await sig.open();
-            this.#createPeer(sig, id);
-            return sig.id;
+        // create connector
+        this.#connector = new RTCConnectorService(this.#serviceUrl, serviceEndpoint, async (remoteId) => {
+            return this.#onConnection(remoteId);
         });
-        this.#lobby = lobby;
     }
 
-    #createPeer(sig, id) {
+    get serviceUrl() {
+        return new URL(this.#serviceUrl);
+    }
+
+    get connectorUrl() {
+        return this.#connector.serviceUrl;
+    }
+
+    async #onConnection(remoteId) {
+        if (LOGGER != null) {
+            LOGGER.info(`REQUESTED CONNECTION\nremote: ${remoteId}`);
+        }
+        console.info(`REQUESTED CONNECTION\nremote: ${remoteId}`);
+        const sig = new RTCSignalingService(this.#serviceUrl);
+        await sig.open();
+        this.#createPeer(sig, remoteId);
+        return sig.id;
+    }
+
+    #createPeer(sig, remoteId) {
         if (LOGGER != null) {
             LOGGER.info(`SIGNALING STARTED\nlocal:  ${sig.id}`);
         }
         console.info(`SIGNALING STARTED\nlocal:  ${sig.id}`);
-        const rtc = new RTCPeer(sig, id, this.#config);
+        const rtc = new RTCPeer(sig, remoteId, this.#config);
         for (const chId in this.#channels) {
             const channelName = this.#channels[chId];
             rtc.openChannel(channelName, chId + 1, (channel, msg) => {
@@ -79,14 +92,23 @@ class RTCClient extends EventTarget {
                 if (this.#messageHandler.has(channel)) {
                     this.#messageHandler.get(channel)(rtc.remoteID, msg);
                 }
-            }).then(function() {
+                // event
+                const ev = new Event(`message:${channel}`);
+                ev.remoteID = rtc.remoteID;
+                ev.data = msg;
+                this.dispatchEvent(ev);
+            }).then(() => {
                 if (LOGGER != null) {
                     LOGGER.info(`CHANNEL OPEN: ${channelName} @ ${rtc.remoteID}`);
                 }
                 console.info(`CHANNEL OPEN: ${channelName} @ ${rtc.remoteID}`);
+                /* event */
+                const ev = new Event(`ready:${channelName}`);
+                ev.remoteID = rtc.remoteID;
+                this.dispatchEvent(ev);
             });
         }
-        this.#rtcInst.set(id, rtc);
+        this.#rtcInst.set(remoteId, rtc);
         rtc.addEventListener("connected", (event) => {
             sig.close();
             if (LOGGER != null) {
@@ -130,12 +152,12 @@ class RTCClient extends EventTarget {
         return rtc;
     }
 
-    async register(name, pass = "", desc = "", version = 0, data = {}) {
+    async register(name, pass = "", version = 0, data = {}) {
         if (LOGGER != null) {
             LOGGER.info(`REGISTER ROOM: ${name}`);
         }
         console.info(`REGISTER ROOM: ${name}`);
-        return await this.#lobby.register(name, pass, desc, version, data);
+        return await this.#connector.register(name, pass, version, data);
     }
 
     async unregister() {
@@ -143,15 +165,7 @@ class RTCClient extends EventTarget {
             LOGGER.info("UNREGISTER ROOM");
         }
         console.info("UNREGISTER ROOM");
-        return await this.#lobby.unregister();
-    }
-
-    async getInstances() {
-        if (LOGGER != null) {
-            LOGGER.info("REQUEST INSTANCE LIST");
-        }
-        console.info("REQUEST INSTANCE LIST");
-        return await this.#lobby.getInstances();
+        return await this.#connector.unregister();
     }
 
     async connect(name, pass = "", version = 0) {
@@ -159,9 +173,9 @@ class RTCClient extends EventTarget {
             LOGGER.info(`GET HOST UUID: ${name}`);
         }
         console.info(`GET HOST UUID: ${name}`);
-        const sig = new Signaling(this.#serviceUrl);
+        const sig = new RTCSignalingService(this.#serviceUrl);
         await sig.open();
-        const res = await this.#lobby.getPeer(sig.id, name, pass, version);
+        const res = await this.#connector.getPeer(sig.id, name, pass, version);
         if (res.success === true) {
             if (LOGGER != null) {
                 LOGGER.info(`CONNECT TO: ${res.id}`);
@@ -177,13 +191,13 @@ class RTCClient extends EventTarget {
         }
     }
 
-    async cut(key) {
+    async cutConnection(remoteId) {
         if (LOGGER != null) {
-            LOGGER.info(`CUT: ${key}`);
+            LOGGER.info(`CUT CONNECTION: ${remoteId}`);
         }
-        console.info(`CUT: ${key}`);
-        this.#rtcInst.get(key).close();
-        this.#rtcInst.delete(key);
+        console.info(`CUT CONNECTION: ${remoteId}`);
+        this.#rtcInst.get(remoteId).close();
+        this.#rtcInst.delete(remoteId);
     }
 
     async disconnect() {
@@ -191,34 +205,34 @@ class RTCClient extends EventTarget {
             LOGGER.info("DISCONNECT");
         }
         console.info("DISCONNECT");
-        this.#rtcInst.forEach(function(rtc) {
+        this.#rtcInst.forEach((rtc) => {
             rtc.close();
         });
         this.#rtcInst.clear();
     }
 
-    getStats(id) {
-        if (this.#rtcInst.has(id)) {
-            return this.#rtcInst.get(id).getStats();
+    getStats(remoteId) {
+        if (this.#rtcInst.has(remoteId)) {
+            return this.#rtcInst.get(remoteId).getStats();
         }
         return Promise.reject("rtcpeer not found");
     }
 
     send(channel, msg) {
-        Array.from(this.#rtcInst.values()).forEach(function(rtc) {
+        Array.from(this.#rtcInst.values()).forEach((rtc) => {
             rtc.send(channel, msg);
         });
     }
 
-    sendOne(channel, id, msg) {
-        if (this.#rtcInst.has(id)) {
-            this.#rtcInst.get(id).send(channel, msg);
+    sendOne(channel, remoteId, msg) {
+        if (this.#rtcInst.has(remoteId)) {
+            this.#rtcInst.get(remoteId).send(channel, msg);
         }
     }
 
-    sendButOne(channel, id, msg) {
-        Array.from(this.#rtcInst.values()).forEach(function(rtc) {
-            if (rtc.remoteID == id) {
+    sendButOne(channel, remoteId, msg) {
+        Array.from(this.#rtcInst.values()).forEach((rtc) => {
+            if (rtc.remoteID == remoteId) {
                 return;
             }
             rtc.send(channel, msg);

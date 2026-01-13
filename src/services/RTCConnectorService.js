@@ -1,8 +1,8 @@
-import EventTargetManager from "../utils/EventTargetManager.js";
+import WebSocketClient, {httpToWsUrl} from "../client/WebSocketClient.js";
+import EventTargetManager from "../utils/event/EventTargetManager.js";
 import Rest from "../utils/Rest.js";
-import WebSocketClient from "../utils/WebSocketClient.js";
 
-export default class Lobby {
+export default class RTCConnectorService {
 
     #serviceUrl;
 
@@ -16,14 +16,16 @@ export default class Lobby {
 
     #websocketEventManager = new EventTargetManager();
 
-    constructor(url, onMessage) {
+    constructor(baseUrl, serviceEndpoint, onMessage) {
+        if (typeof serviceEndpoint !== "string" || serviceEndpoint === "") {
+            throw new TypeError("serviceEndpoint needs to be a non empty string");
+        }
         if (typeof onMessage !== "function") {
             throw new TypeError("onMessage needs to be a function");
         }
-        this.#serviceUrl = new URL("/lobby", url);
+        this.#serviceUrl = new URL(serviceEndpoint, baseUrl);
         // create websocket
-        this.#wsUrl = new URL(this.#serviceUrl);
-        this.#wsUrl.protocol = this.#wsUrl.protocol.replace("http", "ws");
+        this.#wsUrl = httpToWsUrl(this.#serviceUrl);
         this.#websocketEventManager.set("message", async (event) => {
             const answer = await onMessage(event.data.body);
             this.#client.send({
@@ -33,9 +35,22 @@ export default class Lobby {
         });
     }
 
-    async register(name, pass = "", desc = "", version = 0, data = {}) {
+    get serviceUrl() {
+        return new URL(this.#serviceUrl);
+    }
+
+    async register(name, pass, version, data = {}) {
         if (typeof name !== "string" || name === "") {
             throw new TypeError("name needs to be a non empty string");
+        }
+        if (pass == null) {
+            pass = "";
+        }
+        if (typeof pass !== "string") {
+            throw new TypeError("pass needs to be a string or null");
+        }
+        if ((typeof version !== "string" || version === "") && (typeof version !== "number" || isNaN(version))) {
+            throw new TypeError("name needs to be a non empty string or a valid number");
         }
         if (this.#masterName != null) {
             return {
@@ -53,7 +68,6 @@ export default class Lobby {
             const res = await Rest.post(`${this.#serviceUrl}/register`, {
                 name,
                 pass,
-                desc,
                 version,
                 data,
                 key: this.#masterKey,
@@ -85,21 +99,6 @@ export default class Lobby {
             this.#websocketEventManager.switchTarget(null);
 
             return res;
-        } catch (e) {
-            return {
-                success: false,
-                error: e
-            };
-        }
-    }
-
-    async getInstances() {
-        try {
-            const res = await Rest.get(this.#serviceUrl);
-            return {
-                success: true,
-                data: res
-            };
         } catch (e) {
             return {
                 success: false,
