@@ -95,11 +95,9 @@ export default class WebSocketClient extends EventTarget {
         return new Promise((resolve, reject) => {
             if (!!this.#socket && this.#socket.readyState == WebSocket.OPEN) {
                 try {
-                    const closeFn = () => {
-                        this.#socket.removeEventListener("close", closeFn);
+                    this.#socket.addEventListener("close", () => {
                         resolve();
-                    };
-                    this.#socket.addEventListener("close", closeFn);
+                    }, {once: true});
                     this.#socket.close();
                 } catch (e) {
                     reject(e);

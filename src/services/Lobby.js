@@ -14,8 +14,6 @@ export default class Lobby {
 
     #masterKey = btoa(crypto.getRandomValues(new Uint8Array(16)).join(""));
 
-    #onMessage;
-
     #websocketEventManager = new EventTargetManager();
 
     constructor(url, onMessage) {
@@ -27,7 +25,7 @@ export default class Lobby {
         this.#wsUrl = new URL(this.#serviceUrl);
         this.#wsUrl.protocol = this.#wsUrl.protocol.replace("http", "ws");
         this.#websocketEventManager.set("message", async (event) => {
-            const answer = await this.#onMessage(event.data.body);
+            const answer = await onMessage(event.data.body);
             this.#client.send({
                 requestID: event.data.requestID,
                 body: answer
@@ -45,6 +43,10 @@ export default class Lobby {
                 error: "you already registered an instance"
             };
         }
+
+        this.#client = new WebSocketClient(this.#wsUrl);
+        this.#websocketEventManager.switchTarget(this.#client);
+
         await this.#client.open();
         this.#masterName = name;
         try {
@@ -57,9 +59,6 @@ export default class Lobby {
                 key: this.#masterKey,
                 id: this.#client.id
             });
-
-            this.#client = new WebSocketClient(this.#wsUrl);
-            this.#websocketEventManager.switchTarget(this.#client);
 
             return res;
         } catch (e) {
