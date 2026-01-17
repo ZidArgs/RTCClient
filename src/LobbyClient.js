@@ -6,7 +6,7 @@ let LOGGER = null;
 class LobbyClient extends RTCClient {
 
     static setLogger(value) {
-        super.setLogger();
+        super.setLogger(value);
         if (
             value == null ||
             typeof value.log != "function" ||
