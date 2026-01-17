@@ -65,6 +65,14 @@ class RTCClient extends EventTarget {
         return this.#connector.serviceUrl;
     }
 
+    get masterName() {
+        return this.#connector.masterName;
+    }
+
+    get masterKey() {
+        return this.#connector.masterKey;
+    }
+
     async #onConnection(remoteId) {
         if (LOGGER != null) {
             LOGGER.info(`REQUESTED CONNECTION\nremote: ${remoteId}`);

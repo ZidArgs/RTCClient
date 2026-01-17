@@ -39,6 +39,14 @@ export default class RTCConnectorService {
         return new URL(this.#serviceUrl);
     }
 
+    get masterName() {
+        return this.#masterName;
+    }
+
+    get masterKey() {
+        return this.#masterKey;
+    }
+
     async register(name, pass, version, data = {}) {
         if (typeof name !== "string" || name === "") {
             throw new TypeError("name needs to be a non empty string");

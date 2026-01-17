@@ -39,6 +39,28 @@ class LobbyClient extends RTCClient {
         }
     }
 
+    async setRoomVisibility(value = true) {
+        if (LOGGER != null) {
+            LOGGER.info("UPDATE ROOM VISIBILITY");
+        }
+        console.info("UPDATE ROOM VISIBILITY");
+
+        try {
+            const res = await Rest.post(`${this.connectorUrl}/visibility`, {
+                name: this.masterName,
+                key: this.masterKey,
+                value
+            });
+            return res;
+        } catch (e) {
+            return {
+                success: false,
+                reason: "connection problem",
+                error: e
+            };
+        }
+    }
+
 }
 
 export default LobbyClient;
