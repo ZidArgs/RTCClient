@@ -54,7 +54,7 @@ export default class RTCSignalingService extends EventTarget {
 
     close() {
         this.#client.close();
-        this.#websocketEventManager.switchTarget(null);
+        this.#websocketEventManager.disconnect();
     }
 
     sendICE(receiver, data) {

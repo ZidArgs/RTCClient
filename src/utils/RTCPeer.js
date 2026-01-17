@@ -85,7 +85,7 @@ export default class RTCPeer extends EventTarget {
                     break;
                 case "connected":
                     {
-                        this.#signalingEventManager.switchTarget(null);
+                        this.#signalingEventManager.disconnect();
                         this.#printStatus();
                         /* event */
                         const ev = new Event("connected");
@@ -281,8 +281,8 @@ export default class RTCPeer extends EventTarget {
             dch.close();
         });
         this.#dataChannels.clear();
-        this.#rtcEventManager.switchTarget(null);
-        this.#signalingEventManager.switchTarget(null);
+        this.#rtcEventManager.disconnect();
+        this.#signalingEventManager.disconnect();
     }
 
 }

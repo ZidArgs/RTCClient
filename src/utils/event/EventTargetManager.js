@@ -55,6 +55,11 @@ export default class EventTargetManager {
         }
     }
 
+    disconnect() {
+        this.#removeEventListeners();
+        this.#target = null;
+    }
+
     get target() {
         return this.#target?.deref();
     }

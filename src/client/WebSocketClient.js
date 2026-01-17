@@ -1,3 +1,4 @@
+import ConnectionError from "../error/ConnectionError.js";
 import EventTargetManager from "../utils/event/EventTargetManager.js";
 import MessageBuffer from "../utils/MessageBuffer.js";
 
@@ -71,6 +72,7 @@ export default class WebSocketClient extends EventTarget {
         this.#timeout = undefined;
         this.#socket = undefined;
         this.#socketId = undefined;
+        this.dispatchEvent(new Event("closed"));
     }
 
     #onsocketping(msg) {
@@ -112,15 +114,30 @@ export default class WebSocketClient extends EventTarget {
             await new Promise((resolve, reject) => {
                 try {
                     this.#socket = new WebSocket(this.#wsUrl);
+                    const eventManager = new EventTargetManager(this.#socket);
                     this.#websocketEventManager.switchTarget(this.#socket);
-                    this.#socket.addEventListener("message", (event) => {
+                    eventManager.set("error", () => {
+                        eventManager.clear();
+                        eventManager.disconnect(null);
+                        const  socket = this.#socket;
+                        this.#socket = null;
+                        if (socket === WebSocket.CLOSED) {
+                            reject(new ConnectionError("Error connecting WebSocket"));
+                        } else {
+                            reject(new ConnectionError("Unexpected error"));
+                        }
+                    });
+                    eventManager.set("message", (event) => {
+                        eventManager.clear();
+                        eventManager.disconnect();
                         const msg = JSON.parse(event.data);
                         if (msg.type === "uuid") {
                             this.#socketId = msg.data;
                             resolve();
                         }
-                    }, {once: true});
+                    });
                 } catch (e) {
+                    this.#socket = null;
                     reject(e);
                 }
             });
@@ -135,6 +152,8 @@ export default class WebSocketClient extends EventTarget {
                         resolve();
                     }, {once: true});
                     this.#socket.close();
+                    this.#socket = null;
+                    this.#websocketEventManager.disconnect();
                 } catch (e) {
                     reject(e);
                 }

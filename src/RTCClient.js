@@ -1,5 +1,6 @@
 import RTCConnectorService from "./services/RTCConnectorService.js";
 import RTCSignalingService from "./services/RTCSignalingService.js";
+import EventTargetManager from "./utils/event/EventTargetManager.js";
 import RTCPeer from "./utils/RTCPeer.js";
 
 function getPort(value, def) {
@@ -55,6 +56,9 @@ class RTCClient extends EventTarget {
         this.#connector = new RTCConnectorService(this.#serviceUrl, serviceEndpoint, async (remoteId) => {
             return this.#onConnection(remoteId);
         });
+        this.#connector.addEventListener("closed", () => {
+            this.dispatchEvent(new Event("connector_closed"));
+        });
     }
 
     get serviceUrl() {
@@ -90,6 +94,7 @@ class RTCClient extends EventTarget {
         }
         console.info(`SIGNALING STARTED\nlocal:  ${sig.id}`);
         const rtc = new RTCPeer(sig, remoteId, this.#config);
+        const eventManager = new EventTargetManager(rtc);
         for (const chId in this.#channels) {
             const channelName = this.#channels[chId];
             rtc.openChannel(channelName, chId + 1, (channel, msg) => {
@@ -117,7 +122,7 @@ class RTCClient extends EventTarget {
             });
         }
         this.#rtcInst.set(remoteId, rtc);
-        rtc.addEventListener("connected", (event) => {
+        eventManager.set("connected", (event) => {
             sig.close();
             if (LOGGER != null) {
                 LOGGER.info(`CONNECTED: ${event.remoteID}`);
@@ -128,25 +133,29 @@ class RTCClient extends EventTarget {
             ev.remoteID = event.remoteID;
             this.dispatchEvent(ev);
         });
-        rtc.addEventListener("closed", (event) => {
+        eventManager.set("closed", (event) => {
             this.#rtcInst.delete(event.remoteID);
             if (LOGGER != null) {
                 LOGGER.info(`DISCONNECTED: ${event.remoteID}`);
             }
             console.info(`DISCONNECTED: ${event.remoteID}`);
+            eventManager.clear();
+            eventManager.disconnect();
             /* event */
             const ev = new Event("closed");
             ev.remoteID = event.remoteID;
             this.dispatchEvent(ev);
         });
-        rtc.addEventListener("failed", (event) => {
+        eventManager.set("failed", (event) => {
             this.#rtcInst.delete(event.remoteID);
+            eventManager.clear();
+            eventManager.disconnect();
             /* event */
             const ev = new Event("failed");
             ev.remoteID = event.remoteID;
             this.dispatchEvent(ev);
         });
-        rtc.addEventListener("log", (event) => {
+        eventManager.set("log", (event) => {
             /* event */
             const ev = new Event("log");
             ev.type = event.type;

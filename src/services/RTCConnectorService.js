@@ -2,7 +2,7 @@ import WebSocketClient, {httpToWsUrl} from "../client/WebSocketClient.js";
 import EventTargetManager from "../utils/event/EventTargetManager.js";
 import Rest from "../utils/Rest.js";
 
-export default class RTCConnectorService {
+export default class RTCConnectorService extends EventTarget {
 
     #serviceUrl;
 
@@ -23,9 +23,16 @@ export default class RTCConnectorService {
         if (typeof onMessage !== "function") {
             throw new TypeError("onMessage needs to be a function");
         }
+        super();
         this.#serviceUrl = new URL(serviceEndpoint, baseUrl);
         // create websocket
         this.#wsUrl = httpToWsUrl(this.#serviceUrl);
+        this.#websocketEventManager.set("closed", async () => {
+            this.#masterName = null;
+            this.#client = null;
+            this.#websocketEventManager.disconnect();
+            this.dispatchEvent(new Event("closed"));
+        });
         this.#websocketEventManager.set("message", async (event) => {
             const answer = await onMessage(event.data.body);
             this.#client.send({
@@ -67,12 +74,11 @@ export default class RTCConnectorService {
             };
         }
 
-        this.#client = new WebSocketClient(this.#wsUrl);
-        this.#websocketEventManager.switchTarget(this.#client);
-
-        await this.#client.open();
-        this.#masterName = name;
         try {
+            this.#client = new WebSocketClient(this.#wsUrl);
+            this.#websocketEventManager.switchTarget(this.#client);
+            await this.#client.open();
+            this.#masterName = name;
             const res = await Rest.post(`${this.#serviceUrl}/register`, {
                 name,
                 pass,
@@ -81,10 +87,11 @@ export default class RTCConnectorService {
                 key: this.#masterKey,
                 id: this.#client.id
             });
-
             return res;
         } catch (e) {
             this.#masterName = null;
+            this.#client = null;
+            this.#websocketEventManager.disconnect();
             return {
                 success: false,
                 error: e
@@ -98,14 +105,13 @@ export default class RTCConnectorService {
                 name: this.#masterName,
                 key: this.#masterKey
             });
-            if (res.success) {
+            if (res.success || res.reason === "instance not found") {
                 this.#masterName = null;
+                this.#client.close();
+                this.#client = null;
+                this.#websocketEventManager.disconnect();
+                this.dispatchEvent(new Event("closed"));
             }
-
-            this.#client.close();
-            this.#client = null;
-            this.#websocketEventManager.switchTarget(null);
-
             return res;
         } catch (e) {
             return {
