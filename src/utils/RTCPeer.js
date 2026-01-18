@@ -1,12 +1,12 @@
 import EventTargetManager from "./event/EventTargetManager.js";
 import MessageBuffer from "./MessageBuffer.js";
 
-let LOGGER = null;
-
 // TODO better error messages (include expected/current state)
 export default class RTCPeer extends EventTarget {
 
-    static setLogger(value) {
+    #logger = null;
+
+    setLogger(value) {
         if (
             value == null ||
             typeof value.log != "function" ||
@@ -14,9 +14,9 @@ export default class RTCPeer extends EventTarget {
             typeof value.warn != "function" ||
             typeof value.error != "function"
         ) {
-            LOGGER = null;
+            this.#logger = null;
         } else {
-            LOGGER = value;
+            this.#logger = value;
         }
     }
 
@@ -63,15 +63,15 @@ export default class RTCPeer extends EventTarget {
             }
         });
         this.#rtcEventManager.set("iceconnectionstatechange", () => {
-            if (LOGGER != null) {
-                LOGGER.info(`STATE - ${remote}: ${this.#rtc.iceConnectionState}`);
+            if (this.#logger != null) {
+                this.#logger.info(`STATE - ${remote}: ${this.#rtc.iceConnectionState}`);
             }
             console.info(`STATE - ${remote}: ${this.#rtc.iceConnectionState}`);
             switch (this.#rtc.iceConnectionState) {
                 case "failed":
                     {
-                        if (LOGGER != null) {
-                            LOGGER.error(`ERROR: connection to peer "${remote}" unexpectedly terrminated`);
+                        if (this.#logger != null) {
+                            this.#logger.error(`ERROR: connection to peer "${remote}" unexpectedly terrminated`);
                         }
                         console.error(`ERROR: connection to peer "${remote}" unexpectedly terrminated`);
                         this.#rtc.close();
@@ -127,14 +127,14 @@ export default class RTCPeer extends EventTarget {
                 if (body != null) {
                     const ice = new RTCIceCandidate(body);
                     console.info(`ICE - ${sender}:`, ice);
-                    if (LOGGER != null) {
-                        LOGGER.info(`ICE - ${sender}:`, `${ice.foundation}: ${ice.type}/${ice.protocol}`);
+                    if (this.#logger != null) {
+                        this.#logger.info(`ICE - ${sender}:`, `${ice.foundation}: ${ice.type}/${ice.protocol}`);
                     }
                     this.#rtc.addIceCandidate(ice);
                 } else {
                     console.info(`ICE - ${sender}:`, null);
-                    if (LOGGER != null) {
-                        LOGGER.info(`ICE - ${sender}:`, null);
+                    if (this.#logger != null) {
+                        this.#logger.info(`ICE - ${sender}:`, null);
                     }
                 }
             }
@@ -144,8 +144,8 @@ export default class RTCPeer extends EventTarget {
                 sender, body
             } = event;
             if (sender === remote) {
-                if (LOGGER != null) {
-                    LOGGER.info(`SDP [answer] - ${sender}: recieved`);
+                if (this.#logger != null) {
+                    this.#logger.info(`SDP [answer] - ${sender}: recieved`);
                 }
                 console.info(`SDP [answer] - ${sender}:`, body);
                 if (sender == remote)  {
@@ -158,8 +158,8 @@ export default class RTCPeer extends EventTarget {
                 sender, body
             } = event;
             if (sender == remote)  {
-                if (LOGGER != null) {
-                    LOGGER.info(`SDP [offer] - ${sender}: recieved`);
+                if (this.#logger != null) {
+                    this.#logger.info(`SDP [offer] - ${sender}: recieved`);
                 }
                 console.info(`SDP [offer] - ${sender}:`, body);
                 this.#rtc.setRemoteDescription(body).then(() => {
@@ -176,8 +176,8 @@ export default class RTCPeer extends EventTarget {
     #printStatus() {
         this.#rtc.getStats().then((stats) => {
             stats.forEach((report) => {
-                if (LOGGER != null) {
-                    LOGGER.info(`RTC STATUS - ${this.#remote}:`, {
+                if (this.#logger != null) {
+                    this.#logger.info(`RTC STATUS - ${this.#remote}:`, {
                         type: report.type,
                         state: report.state,
                         label: report.label,

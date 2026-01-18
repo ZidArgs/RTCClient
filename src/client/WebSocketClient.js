@@ -35,7 +35,7 @@ export default class WebSocketClient extends EventTarget {
         this.#websocketEventManager.set("open", () => {
             this.#onsocketopen();
         });
-        this.#websocketEventManager.set("close", () => {
+        this.#websocketEventManager.set(["close", "error"], () => {
             this.#onsocketclose();
         });
         this.#websocketEventManager.set("message", (event) => {
@@ -68,10 +68,7 @@ export default class WebSocketClient extends EventTarget {
     }
 
     #onsocketclose(/* event */) {
-        clearTimeout(this.#timeout);
-        this.#timeout = undefined;
-        this.#socket = undefined;
-        this.#socketId = undefined;
+        this.#cleanup();
         this.dispatchEvent(new Event("closed"));
     }
 
@@ -87,6 +84,14 @@ export default class WebSocketClient extends EventTarget {
         event.data = data;
         this.#onmessage(event);
         this.dispatchEvent(event);
+    }
+
+    #cleanup() {
+        clearTimeout(this.#timeout);
+        this.#timeout = null;
+        this.#socket = null;
+        this.#socketId = null;
+        this.#websocketEventManager.disconnect();
     }
 
     get id() {
@@ -117,11 +122,11 @@ export default class WebSocketClient extends EventTarget {
                     const eventManager = new EventTargetManager(this.#socket);
                     this.#websocketEventManager.switchTarget(this.#socket);
                     eventManager.set("error", () => {
+                        const readyState = this.#socket.readyState;
                         eventManager.clear();
-                        eventManager.disconnect(null);
-                        const  socket = this.#socket;
-                        this.#socket = null;
-                        if (socket === WebSocket.CLOSED) {
+                        eventManager.disconnect();
+                        this.#cleanup();
+                        if (readyState  === WebSocket.CLOSED) {
                             reject(new ConnectionError("Error connecting WebSocket"));
                         } else {
                             reject(new ConnectionError("Unexpected error"));
@@ -152,8 +157,7 @@ export default class WebSocketClient extends EventTarget {
                         resolve();
                     }, {once: true});
                     this.#socket.close();
-                    this.#socket = null;
-                    this.#websocketEventManager.disconnect();
+                    this.#onsocketclose();
                 } catch (e) {
                     reject(e);
                 }

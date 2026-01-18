@@ -1,11 +1,11 @@
 import RTCClient from "./RTCClient.js";
 import Rest from "./utils/Rest.js";
 
-let LOGGER = null;
-
 class LobbyClient extends RTCClient {
 
-    static setLogger(value) {
+    #logger = null;
+
+    setLogger(value) {
         super.setLogger(value);
         if (
             value == null ||
@@ -14,15 +14,15 @@ class LobbyClient extends RTCClient {
             typeof value.warn != "function" ||
             typeof value.error != "function"
         ) {
-            LOGGER = null;
+            this.#logger = null;
         } else {
-            LOGGER = value;
+            this.#logger = value;
         }
     }
 
     async getInstances() {
-        if (LOGGER != null) {
-            LOGGER.info("REQUEST INSTANCE LIST");
+        if (this.#logger != null) {
+            this.#logger.info("REQUEST INSTANCE LIST");
         }
         console.info("REQUEST INSTANCE LIST");
         try {
@@ -40,8 +40,8 @@ class LobbyClient extends RTCClient {
     }
 
     async setRoomVisibility(value = true) {
-        if (LOGGER != null) {
-            LOGGER.info("UPDATE ROOM VISIBILITY");
+        if (this.#logger != null) {
+            this.#logger.info("UPDATE ROOM VISIBILITY");
         }
         console.info("UPDATE ROOM VISIBILITY");
 
