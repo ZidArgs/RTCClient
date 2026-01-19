@@ -120,7 +120,9 @@ export default class WebSocketClient extends EventTarget {
                 try {
                     this.#socket = new WebSocket(this.#wsUrl);
                     const eventManager = new EventTargetManager(this.#socket);
-                    this.#websocketEventManager.switchTarget(this.#socket);
+                    eventManager.set("open", () => {
+                        this.#websocketEventManager.switchTarget(this.#socket);
+                    });
                     eventManager.set("error", () => {
                         const readyState = this.#socket.readyState;
                         eventManager.clear();

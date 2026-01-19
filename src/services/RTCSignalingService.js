@@ -10,9 +10,9 @@ export default class RTCSignalingService extends EventTarget {
 
     #websocketEventManager = new EventTargetManager();
 
-    constructor(url) {
+    constructor(baseUrl) {
         super();
-        this.#wsUrl = new URL("/signaling", url);
+        this.#wsUrl = new URL("signaling", baseUrl);
         this.#wsUrl.protocol = this.#wsUrl.protocol.replace("http", "ws");
         this.#client = new WebSocketClient(this.#wsUrl);
         this.#websocketEventManager.switchTarget(this.#client);

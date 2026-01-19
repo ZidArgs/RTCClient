@@ -2,6 +2,7 @@ import RTCConnectorService from "./services/RTCConnectorService.js";
 import RTCSignalingService from "./services/RTCSignalingService.js";
 import EventTargetManager from "./utils/event/EventTargetManager.js";
 import RTCPeer from "./utils/RTCPeer.js";
+import {trimPathName} from "./utils/UriPath.js";
 
 function getPort(value, def) {
     const port = parseInt(value);
@@ -42,12 +43,13 @@ class RTCClient extends EventTarget {
 
     #messageHandler = new Map();
 
-    constructor(port, serviceEndpoint, config = {}, channels = []) {
+    constructor(port, baseUrl, serviceEndpoint, config = {}, channels = []) {
         if (typeof serviceEndpoint !== "string" || serviceEndpoint === "") {
             throw new TypeError("serviceEndpoint needs to be a non empty string");
         }
         super();
-        this.#serviceUrl = new URL(location);
+        baseUrl = trimPathName(baseUrl);
+        this.#serviceUrl = new URL(`/${baseUrl}/`, location);
         this.#serviceUrl.port = getPort(port, this.#serviceUrl.port);
         this.#config = config;
         this.#channels = channels;

@@ -1,6 +1,7 @@
 import WebSocketClient, {httpToWsUrl} from "../client/WebSocketClient.js";
 import EventTargetManager from "../utils/event/EventTargetManager.js";
 import Rest from "../utils/Rest.js";
+import {trimPathName} from "../utils/UriPath.js";
 
 export default class RTCConnectorService extends EventTarget {
 
@@ -24,6 +25,7 @@ export default class RTCConnectorService extends EventTarget {
             throw new TypeError("onMessage needs to be a function");
         }
         super();
+        serviceEndpoint = trimPathName(serviceEndpoint);
         this.#serviceUrl = new URL(serviceEndpoint, baseUrl);
         // create websocket
         this.#wsUrl = httpToWsUrl(this.#serviceUrl);
