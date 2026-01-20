@@ -31,7 +31,7 @@ class RTCClient extends EventTarget {
     }
 
     // Private instance fields replacing former WeakMap storage
-    #serviceUrl;
+    #serviceUrl = new URL("/", location);
 
     #connector;
 
@@ -43,13 +43,15 @@ class RTCClient extends EventTarget {
 
     #messageHandler = new Map();
 
-    constructor(port, baseUrl, serviceEndpoint, config = {}, channels = []) {
+    constructor(port, basePath, serviceEndpoint, config = {}, channels = []) {
         if (typeof serviceEndpoint !== "string" || serviceEndpoint === "") {
             throw new TypeError("serviceEndpoint needs to be a non empty string");
         }
         super();
-        baseUrl = trimPathName(baseUrl);
-        this.#serviceUrl = new URL(`/${baseUrl}/`, location);
+        const trimmedBasePath = trimPathName(basePath);
+        if (trimmedBasePath !== "") {
+            this.#serviceUrl = new URL(`/${trimmedBasePath}/`, location);
+        }
         this.#serviceUrl.port = getPort(port, this.#serviceUrl.port);
         this.#config = config;
         this.#channels = channels;
