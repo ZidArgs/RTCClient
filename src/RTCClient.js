@@ -194,20 +194,27 @@ class RTCClient extends EventTarget {
             this.#logger.info(`GET HOST UUID: ${name}`);
         }
         console.info(`GET HOST UUID: ${name}`);
-        const sig = new RTCSignalingService(this.#serviceUrl);
-        await sig.open();
-        const res = await this.#connector.getPeer(sig.id, name, pass, version);
-        if (res.success === true) {
-            if (this.#logger != null) {
-                this.#logger.info(`CONNECT TO: ${res.id}`);
+        try {
+            const sig = new RTCSignalingService(this.#serviceUrl);
+            await sig.open();
+            const res = await this.#connector.getPeer(sig.id, name, pass, version);
+            if (res.success === true) {
+                if (this.#logger != null) {
+                    this.#logger.info(`CONNECT TO: ${res.id}`);
+                }
+                console.info(`CONNECT TO: ${res.id}`);
+                this.#createPeer(sig, res.id).negotiate();
+                return {success: true};
+            } else {
+                return {
+                    success: false,
+                    error: res.error
+                };
             }
-            console.info(`CONNECT TO: ${res.id}`);
-            this.#createPeer(sig, res.id).negotiate();
-            return {success: true};
-        } else {
+        } catch (err) {
             return {
                 success: false,
-                error: res.error
+                error: err
             };
         }
     }
