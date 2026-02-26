@@ -16,6 +16,8 @@ class RTCClient extends EventTarget {
 
     #logger = null;
 
+    #channelLogBlacklist = new Set();
+
     setLogger(value) {
         if (
             value == null ||
@@ -27,6 +29,14 @@ class RTCClient extends EventTarget {
             this.#logger = null;
         } else {
             this.#logger = value;
+        }
+    }
+
+    blacklistChannelLogging(channel, blacklist = true) {
+        if (blacklist) {
+            this.#channelLogBlacklist.add(channel);
+        } else {
+            this.#channelLogBlacklist.delete(channel);
         }
     }
 
@@ -102,26 +112,28 @@ class RTCClient extends EventTarget {
         for (const chId in this.#channels) {
             const channelName = this.#channels[chId];
             rtc.openChannel(channelName, chId + 1, (channel, msg) => {
-                if (this.#logger != null) {
-                    this.#logger.info(`${rtc.remoteID} [${channel}]:`, msg);
+                if (!this.#channelLogBlacklist.has(channel)) {
+                    if (this.#logger != null) {
+                        this.#logger.info(`RECEIVE ${rtc.name} [${channel}]:`, msg);
+                    }
+                    console.info(`RECEIVE ${rtc.name} [${channel}]:`, msg);
                 }
-                console.info(`${rtc.remoteID} [${channel}]:`, msg);
                 if (this.#messageHandler.has(channel)) {
-                    this.#messageHandler.get(channel)(rtc.remoteID, msg);
+                    this.#messageHandler.get(channel)(rtc.remoteId, msg);
                 }
                 // event
                 const ev = new Event(`message:${channel}`);
-                ev.remoteID = rtc.remoteID;
+                ev.remoteId = rtc.remoteId;
                 ev.data = msg;
                 this.dispatchEvent(ev);
             }).then(() => {
                 if (this.#logger != null) {
-                    this.#logger.info(`CHANNEL OPEN: ${channelName} @ ${rtc.remoteID}`);
+                    this.#logger.info(`CHANNEL OPEN: ${channelName} @ ${rtc.remoteId}`);
                 }
-                console.info(`CHANNEL OPEN: ${channelName} @ ${rtc.remoteID}`);
+                console.info(`CHANNEL OPEN: ${channelName} @ ${rtc.remoteId}`);
                 /* event */
                 const ev = new Event(`ready:${channelName}`);
-                ev.remoteID = rtc.remoteID;
+                ev.remoteId = rtc.remoteId;
                 this.dispatchEvent(ev);
             });
         }
@@ -129,34 +141,34 @@ class RTCClient extends EventTarget {
         eventManager.set("connected", (event) => {
             sig.close();
             if (this.#logger != null) {
-                this.#logger.info(`CONNECTED: ${event.remoteID}`);
+                this.#logger.info(`CONNECTED: ${event.remoteId}`);
             }
-            console.info(`CONNECTED: ${event.remoteID}`);
+            console.info(`CONNECTED: ${event.remoteId}`);
             /* event */
             const ev = new Event("connected");
-            ev.remoteID = event.remoteID;
+            ev.remoteId = event.remoteId;
             this.dispatchEvent(ev);
         });
         eventManager.set("closed", (event) => {
-            this.#rtcInst.delete(event.remoteID);
+            this.#rtcInst.delete(event.remoteId);
             if (this.#logger != null) {
-                this.#logger.info(`DISCONNECTED: ${event.remoteID}`);
+                this.#logger.info(`DISCONNECTED: ${event.remoteId}`);
             }
-            console.info(`DISCONNECTED: ${event.remoteID}`);
+            console.info(`DISCONNECTED: ${event.remoteId}`);
             eventManager.clear();
             eventManager.disconnect();
             /* event */
             const ev = new Event("closed");
-            ev.remoteID = event.remoteID;
+            ev.remoteId = event.remoteId;
             this.dispatchEvent(ev);
         });
         eventManager.set("failed", (event) => {
-            this.#rtcInst.delete(event.remoteID);
+            this.#rtcInst.delete(event.remoteId);
             eventManager.clear();
             eventManager.disconnect();
             /* event */
             const ev = new Event("failed");
-            ev.remoteID = event.remoteID;
+            ev.remoteId = event.remoteId;
             this.dispatchEvent(ev);
         });
         eventManager.set("log", (event) => {
@@ -167,9 +179,9 @@ class RTCClient extends EventTarget {
             this.dispatchEvent(ev);
         });
         if (this.#logger != null) {
-            this.#logger.info(`RTC MODULE INITIALIZED\nlocal:  ${sig.id}\nremote: ${rtc.remoteID}`);
+            this.#logger.info(`RTC MODULE INITIALIZED\nlocal:  ${sig.id}\nremote: ${rtc.remoteId}`);
         }
-        console.info(`RTC MODULE INITIALIZED\nlocal:  ${sig.id}\nremote: ${rtc.remoteID}`);
+        console.info(`RTC MODULE INITIALIZED\nlocal:  ${sig.id}\nremote: ${rtc.remoteId}`);
         return rtc;
     }
 
@@ -247,24 +259,50 @@ class RTCClient extends EventTarget {
     }
 
     send(channel, msg) {
-        Array.from(this.#rtcInst.values()).forEach((rtc) => {
-            rtc.send(channel, msg);
+        Array.from(this.#rtcInst.values()).forEach((rtcPeer) => {
+            const didSend = rtcPeer.send(channel, msg);
+            if (didSend && !this.#channelLogBlacklist.has(channel)) {
+                if (this.#logger != null) {
+                    this.#logger.info(`SEND ${rtcPeer.name} [${channel}]:`, msg);
+                }
+                console.info(`SEND ${rtcPeer.name} [${channel}]:`, msg);
+            }
         });
     }
 
     sendOne(channel, remoteId, msg) {
         if (this.#rtcInst.has(remoteId)) {
-            this.#rtcInst.get(remoteId).send(channel, msg);
+            const rtcPeer = this.#rtcInst.get(remoteId);
+            const didSend = rtcPeer.send(channel, msg);
+            if (didSend && !this.#channelLogBlacklist.has(channel)) {
+                if (this.#logger != null) {
+                    this.#logger.info(`SEND ${rtcPeer.name} [${channel}]:`, msg);
+                }
+                console.info(`SEND ${rtcPeer.name} [${channel}]:`, msg);
+            }
         }
     }
 
     sendButOne(channel, remoteId, msg) {
-        Array.from(this.#rtcInst.values()).forEach((rtc) => {
-            if (rtc.remoteID == remoteId) {
+        Array.from(this.#rtcInst.values()).forEach((rtcPeer) => {
+            if (rtcPeer.remoteId == remoteId) {
                 return;
             }
-            rtc.send(channel, msg);
+            const didSend = rtcPeer.send(channel, msg);
+            if (didSend && !this.#channelLogBlacklist.has(channel)) {
+                if (this.#logger != null) {
+                    this.#logger.info(`SEND ${rtcPeer.name} [${channel}]:`, msg);
+                }
+                console.info(`SEND ${rtcPeer.name} [${channel}]:`, msg);
+            }
         });
+    }
+
+    renameInstance(remoteId, name) {
+        if (this.#rtcInst.has(remoteId)) {
+            const rtcPeer = this.#rtcInst.get(remoteId);
+            rtcPeer.name = name;
+        }
     }
 
     setMessageHandler(channel, callback) {

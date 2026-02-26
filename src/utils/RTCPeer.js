@@ -22,6 +22,8 @@ export default class RTCPeer extends EventTarget {
 
     #signalingChannel;
 
+    #name;
+
     #remote;
 
     #rtc;
@@ -44,8 +46,8 @@ export default class RTCPeer extends EventTarget {
         this.#rtcEventManager.switchTarget(this.#rtc);
         this.#rtcEventManager.set("track", (event) => {
             const ev = new Event("stream");
-            ev.localID = this.localID;
-            ev.remoteID = this.remoteID;
+            ev.localId = this.localId;
+            ev.remoteId = this.remoteId;
             ev.stream = event.streams[0];
             this.dispatchEvent(ev);
         });
@@ -78,8 +80,8 @@ export default class RTCPeer extends EventTarget {
                         this.#printStatus();
                         /* event */
                         const ev = new Event("failed");
-                        ev.localID = this.localID;
-                        ev.remoteID = this.remoteID;
+                        ev.localId = this.localId;
+                        ev.remoteId = this.remoteId;
                         this.dispatchEvent(ev);
                     }
                     break;
@@ -89,8 +91,8 @@ export default class RTCPeer extends EventTarget {
                         this.#printStatus();
                         /* event */
                         const ev = new Event("connected");
-                        ev.localID = this.localID;
-                        ev.remoteID = this.remoteID;
+                        ev.localId = this.localId;
+                        ev.remoteId = this.remoteId;
                         this.dispatchEvent(ev);
                     }
                     break;
@@ -101,8 +103,8 @@ export default class RTCPeer extends EventTarget {
                         this.#printStatus();
                         /* event */
                         const ev = new Event("closed");
-                        ev.localID = this.localID;
-                        ev.remoteID = this.remoteID;
+                        ev.localId = this.localId;
+                        ev.remoteId = this.remoteId;
                         this.dispatchEvent(ev);
                     }
                     break;
@@ -112,8 +114,8 @@ export default class RTCPeer extends EventTarget {
                         this.#printStatus();
                         /* event */
                         const ev = new Event("closed");
-                        ev.localID = this.localID;
-                        ev.remoteID = this.remoteID;
+                        ev.localId = this.localId;
+                        ev.remoteId = this.remoteId;
                         this.dispatchEvent(ev);
                     }
                     break;
@@ -192,11 +194,26 @@ export default class RTCPeer extends EventTarget {
         });
     }
 
-    get localID() {
+    get localId() {
         return this.#signalingChannel.UUID;
     }
 
-    get remoteID() {
+    get remoteId() {
+        return this.#remote;
+    }
+
+    set name(value) {
+        if (typeof value === "string" && value !== "") {
+            this.#name = value;
+        } else {
+            this.#name = null;
+        }
+    }
+
+    get name() {
+        if (this.#name != null) {
+            return `${this.#name} (${this.#remote})`;
+        }
         return this.#remote;
     }
 
