@@ -1,5 +1,5 @@
+import EventTargetManager from "@emcjs/core/util/event/EventTargetManager.js";
 import WebSocketClient, {httpToWsUrl} from "../client/WebSocketClient.js";
-import EventTargetManager from "../utils/event/EventTargetManager.js";
 import Rest from "../utils/Rest.js";
 import {trimPathName} from "../utils/UriPath.js";
 

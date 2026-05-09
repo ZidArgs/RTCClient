@@ -1,6 +1,6 @@
 
+import EventTargetManager from "@emcjs/core/util/event/EventTargetManager.js";
 import WebSocketClient from "../client/WebSocketClient.js";
-import EventTargetManager from "../utils/event/EventTargetManager.js";
 
 export default class RTCSignalingService extends EventTarget {
 

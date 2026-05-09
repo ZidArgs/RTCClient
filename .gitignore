@@ -3,6 +3,7 @@ node_modules
 dev
 prod
 out
+lib
 dist
 yarn-error.log
 yarn.lock
@@ -12,3 +13,6 @@ yarn.lock
 package-lock.json
 backup.json
 editor/info.log
+import_tree.json
+import_removed.json
+import_unresolved.json

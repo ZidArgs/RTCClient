@@ -1,6 +1,6 @@
+import EventTargetManager from "@emcjs/core/util/event/EventTargetManager.js";
+import DataBuffer from "@emcjs/core/data/DataBuffer.js";
 import ConnectionError from "../error/ConnectionError.js";
-import EventTargetManager from "../utils/event/EventTargetManager.js";
-import MessageBuffer from "../utils/MessageBuffer.js";
 
 const EMPTY_FN = function() {};
 
@@ -24,7 +24,7 @@ export default class WebSocketClient extends EventTarget {
 
     #onmessage = EMPTY_FN;
 
-    #messageBuffer = new MessageBuffer();
+    #messageBuffer = new DataBuffer();
 
     #websocketEventManager = new EventTargetManager();
 

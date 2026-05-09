@@ -1,6 +1,6 @@
+import EventTargetManager from "@emcjs/core/util/event/EventTargetManager.js";
 import RTCConnectorService from "./services/RTCConnectorService.js";
 import RTCSignalingService from "./services/RTCSignalingService.js";
-import EventTargetManager from "./utils/event/EventTargetManager.js";
 import RTCPeer from "./utils/RTCPeer.js";
 import {trimPathName} from "./utils/UriPath.js";
 

@@ -1,5 +1,5 @@
-import EventTargetManager from "./event/EventTargetManager.js";
-import MessageBuffer from "./MessageBuffer.js";
+import DataBuffer from "@emcjs/core/data/DataBuffer.js";
+import EventTargetManager from "@emcjs/core/util/event/EventTargetManager.js";
 
 // TODO better error messages (include expected/current state)
 export default class RTCPeer extends EventTarget {
@@ -248,7 +248,7 @@ export default class RTCPeer extends EventTarget {
 
     openChannel(name, id, callback) {
         return new Promise((resolve) => {
-            this.#messageBuffer.set(name, new MessageBuffer());
+            this.#messageBuffer.set(name, new DataBuffer());
             const dch = this.#rtc.createDataChannel(name, {
                 negotiated: true,
                 id: id
